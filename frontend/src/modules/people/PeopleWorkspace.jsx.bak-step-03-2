@@ -1,0 +1,746 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  BookUser,
+  GraduationCap,
+  Link2,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
+
+import { useI18n } from "../../i18n";
+import api from "../../services/api";
+import EnrollmentDialog from "./EnrollmentDialog";
+import GuardianDialog from "./GuardianDialog";
+import GuardianLinkDialog from "./GuardianLinkDialog";
+import StudentDialog from "./StudentDialog";
+import TeacherDialog from "./TeacherDialog";
+
+const inputClass =
+  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100";
+
+function apiError(error, fallback) {
+  const payload = error?.response?.data;
+  if (!payload) return fallback;
+  if (payload.detail) return String(payload.detail);
+  const first = Object.values(payload)[0];
+  if (Array.isArray(first)) return String(first[0]);
+  if (first && typeof first === "object") {
+    const nested = Object.values(first)[0];
+    if (Array.isArray(nested)) return String(nested[0]);
+  }
+  return fallback;
+}
+
+function EmptyState({ children }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+      {children}
+    </div>
+  );
+}
+
+function StatusBadge({ children }) {
+  return (
+    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+      {children}
+    </span>
+  );
+}
+
+export default function PeopleWorkspace({
+  onCountsChanged,
+}) {
+  const { t } = useI18n();
+
+  const [tab, setTab] = useState("students");
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  const [summary, setSummary] = useState({
+    students: 0,
+    active_students: 0,
+    teachers: 0,
+    active_teachers: 0,
+    guardians: 0,
+    enrollments: 0,
+  });
+  const [students, setStudents] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [guardians, setGuardians] = useState([]);
+  const [guardianLinks, setGuardianLinks] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
+  const [years, setYears] = useState([]);
+  const [classrooms, setClassrooms] = useState([]);
+
+  const [studentDialog, setStudentDialog] = useState({
+    open: false,
+    item: null,
+  });
+  const [teacherDialog, setTeacherDialog] = useState({
+    open: false,
+    item: null,
+  });
+  const [guardianDialog, setGuardianDialog] = useState({
+    open: false,
+    item: null,
+  });
+  const [linkDialog, setLinkDialog] = useState({
+    open: false,
+    guardian: null,
+  });
+  const [enrollmentDialog, setEnrollmentDialog] = useState({
+    open: false,
+    item: null,
+  });
+
+  const load = async ({ initial = false } = {}) => {
+    if (initial) setInitialLoading(true);
+    else setSyncing(true);
+
+    setError("");
+
+    try {
+      const [
+        summaryRes,
+        studentsRes,
+        teachersRes,
+        guardiansRes,
+        linksRes,
+        enrollmentsRes,
+        yearsRes,
+        classroomsRes,
+      ] = await Promise.all([
+        api.get("/people/summary/"),
+        api.get("/people/students/"),
+        api.get("/people/teachers/"),
+        api.get("/people/guardians/"),
+        api.get("/people/guardian-links/"),
+        api.get("/people/enrollments/"),
+        api.get("/academics/years/"),
+        api.get("/academics/classrooms/"),
+      ]);
+
+      setSummary(summaryRes.data);
+      setStudents(studentsRes.data);
+      setTeachers(teachersRes.data);
+      setGuardians(guardiansRes.data);
+      setGuardianLinks(linksRes.data);
+      setEnrollments(enrollmentsRes.data);
+      setYears(yearsRes.data);
+      setClassrooms(classroomsRes.data);
+
+      onCountsChanged?.({
+        students: summaryRes.data.active_students,
+        teachers: summaryRes.data.active_teachers,
+      });
+    } catch (err) {
+      setError(apiError(err, t("people.errors.load")));
+    } finally {
+      if (initial) setInitialLoading(false);
+      else setSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    load({ initial: true });
+  }, []);
+
+  const filteredStudents = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return students;
+
+    return students.filter((student) =>
+      [
+        student.first_name,
+        student.last_name,
+        student.matricule,
+        student.current_enrollment?.classroom_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [students, search]);
+
+  const filteredTeachers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return teachers;
+    return teachers.filter((teacher) =>
+      [
+        teacher.first_name,
+        teacher.last_name,
+        teacher.employee_number,
+        teacher.email,
+        teacher.speciality,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [teachers, search]);
+
+  const filteredGuardians = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return guardians;
+    return guardians.filter((guardian) =>
+      [
+        guardian.first_name,
+        guardian.last_name,
+        guardian.phone,
+        guardian.email,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [guardians, search]);
+
+  const filteredEnrollments = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return enrollments;
+    return enrollments.filter((enrollment) =>
+      [
+        enrollment.student_name,
+        enrollment.student_matricule,
+        enrollment.academic_year_name,
+        enrollment.classroom_name,
+        enrollment.level_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [enrollments, search]);
+
+  const remove = async (endpoint, label) => {
+    if (!window.confirm(`${t("common.delete")}: ${label} ?`)) {
+      return;
+    }
+
+    setError("");
+
+    try {
+      await api.delete(endpoint);
+      await load();
+    } catch (err) {
+      setError(apiError(err, t("people.errors.delete")));
+    }
+  };
+
+  if (initialLoading) {
+    return (
+      <div className="grid min-h-[300px] place-items-center rounded-3xl border border-slate-200 bg-white">
+        <div className="inline-flex items-center gap-2 text-sm text-slate-500">
+          <Loader2 size={17} className="animate-spin" />
+          {t("people.loading")}
+        </div>
+      </div>
+    );
+  }
+
+  const tabs = [
+    ["students", t("people.tabs.students"), GraduationCap],
+    ["teachers", t("people.tabs.teachers"), UserRound],
+    ["guardians", t("people.tabs.guardians"), UsersRound],
+    ["enrollments", t("people.tabs.enrollments"), BookUser],
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
+        <div>
+          <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
+            {t("people.step")}
+          </div>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+            {t("people.title")}
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+            {t("people.description")}
+          </p>
+        </div>
+
+        {syncing && (
+          <div className="inline-flex items-center gap-2 text-xs text-slate-400">
+            <RefreshCw size={13} className="animate-spin" />
+            {t("people.syncing")}
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {error}
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          [t("people.summary.students"), summary.active_students, GraduationCap],
+          [t("people.summary.teachers"), summary.active_teachers, UserRound],
+          [t("people.summary.guardians"), summary.guardians, UsersRound],
+          [t("people.summary.enrollments"), summary.enrollments, BookUser],
+        ].map(([label, value, Icon]) => (
+          <div
+            key={label}
+            className="rounded-2xl border border-slate-200 bg-white p-4"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">{label}</span>
+              <Icon size={17} className="text-slate-400" />
+            </div>
+            <div className="mt-3 text-2xl font-semibold">{value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-1 overflow-x-auto">
+          {tabs.map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                setTab(id);
+                setSearch("");
+              }}
+              className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm ${
+                tab === id
+                  ? "bg-slate-950 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative min-w-0 sm:w-72">
+          <Search
+            size={16}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+          <input
+            className={`${inputClass} pl-9`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("people.search")}
+          />
+        </div>
+      </div>
+
+      {tab === "students" && (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="font-semibold">{t("people.students.title")}</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                {t("people.students.help")}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStudentDialog({ open: true, item: null })}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white"
+            >
+              <Plus size={16} />
+              {t("people.students.add")}
+            </button>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {!filteredStudents.length && (
+              <EmptyState>{t("people.students.empty")}</EmptyState>
+            )}
+
+            {filteredStudents.map((student) => (
+              <div
+                key={student.id}
+                className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 md:flex-row md:items-center"
+              >
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-100 font-semibold text-slate-600">
+                  {(student.first_name?.[0] || "")}
+                  {(student.last_name?.[0] || "")}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">
+                    {student.last_name} {student.first_name}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {student.matricule}
+                    {student.current_enrollment
+                      ? ` • ${student.current_enrollment.classroom_name} • ${student.current_enrollment.academic_year_name}`
+                      : ` • ${t("people.students.notEnrolled")}`}
+                  </div>
+                </div>
+
+                <StatusBadge>{student.status}</StatusBadge>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setStudentDialog({ open: true, item: student })
+                    }
+                    className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      remove(
+                        `/people/students/${student.id}/`,
+                        `${student.last_name} ${student.first_name}`
+                      )
+                    }
+                    className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {tab === "teachers" && (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="font-semibold">{t("people.teachers.title")}</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                {t("people.teachers.help")}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTeacherDialog({ open: true, item: null })}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white"
+            >
+              <Plus size={16} />
+              {t("people.teachers.add")}
+            </button>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {!filteredTeachers.length && (
+              <EmptyState>{t("people.teachers.empty")}</EmptyState>
+            )}
+
+            {filteredTeachers.map((teacher) => (
+              <div
+                key={teacher.id}
+                className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 md:flex-row md:items-center"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">
+                    {teacher.last_name} {teacher.first_name}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {teacher.employee_number}
+                    {teacher.speciality ? ` • ${teacher.speciality}` : ""}
+                    {teacher.email ? ` • ${teacher.email}` : ""}
+                  </div>
+                </div>
+
+                <StatusBadge>{teacher.status}</StatusBadge>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTeacherDialog({ open: true, item: teacher })
+                    }
+                    className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      remove(
+                        `/people/teachers/${teacher.id}/`,
+                        `${teacher.last_name} ${teacher.first_name}`
+                      )
+                    }
+                    className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {tab === "guardians" && (
+        <div className="space-y-5">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div>
+                <h2 className="font-semibold">{t("people.guardians.title")}</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  {t("people.guardians.help")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGuardianDialog({ open: true, item: null })}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white"
+              >
+                <Plus size={16} />
+                {t("people.guardians.add")}
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {!filteredGuardians.length && (
+                <EmptyState>{t("people.guardians.empty")}</EmptyState>
+              )}
+
+              {filteredGuardians.map((guardian) => (
+                <div
+                  key={guardian.id}
+                  className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 md:flex-row md:items-center"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">
+                      {guardian.last_name} {guardian.first_name}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      {guardian.phone}
+                      {guardian.email ? ` • ${guardian.email}` : ""}
+                      {` • ${guardian.children_count || 0} ${t("people.guardians.children")}`}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setLinkDialog({ open: true, guardian })
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      <Link2 size={14} />
+                      {t("people.guardians.link")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setGuardianDialog({ open: true, item: guardian })
+                      }
+                      className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        remove(
+                          `/people/guardians/${guardian.id}/`,
+                          `${guardian.last_name} ${guardian.first_name}`
+                        )
+                      }
+                      className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6">
+            <h2 className="font-semibold">
+              {t("people.guardians.linksTitle")}
+            </h2>
+            <div className="mt-5 space-y-3">
+              {!guardianLinks.length && (
+                <EmptyState>{t("people.guardians.noLinks")}</EmptyState>
+              )}
+              {guardianLinks.map((link) => (
+                <div
+                  key={link.id}
+                  className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">
+                      {link.student_name}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      {link.guardian_name} • {link.relationship_label}
+                      {link.is_primary
+                        ? ` • ${t("people.guardians.primaryShort")}`
+                        : ""}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      remove(
+                        `/people/guardian-links/${link.id}/`,
+                        `${link.guardian_name} ↔ ${link.student_name}`
+                      )
+                    }
+                    className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {tab === "enrollments" && (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="font-semibold">
+                {t("people.enrollments.title")}
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                {t("people.enrollments.help")}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setEnrollmentDialog({ open: true, item: null })
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white"
+            >
+              <Plus size={16} />
+              {t("people.enrollments.add")}
+            </button>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {!filteredEnrollments.length && (
+              <EmptyState>{t("people.enrollments.empty")}</EmptyState>
+            )}
+
+            {filteredEnrollments.map((enrollment) => (
+              <div
+                key={enrollment.id}
+                className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 lg:flex-row lg:items-center"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">
+                    {enrollment.student_name}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {enrollment.student_matricule} •{" "}
+                    {enrollment.classroom_name} •{" "}
+                    {enrollment.academic_year_name}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <StatusBadge>{enrollment.status}</StatusBadge>
+                  <StatusBadge>
+                    {enrollment.promotion_decision_label}
+                  </StatusBadge>
+                  {enrollment.final_average !== null &&
+                    enrollment.final_average !== undefined && (
+                      <StatusBadge>
+                        {t("people.enrollments.averageShort")}:{" "}
+                        {enrollment.final_average}
+                      </StatusBadge>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEnrollmentDialog({
+                        open: true,
+                        item: enrollment,
+                      })
+                    }
+                    className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      remove(
+                        `/people/enrollments/${enrollment.id}/`,
+                        `${enrollment.student_name} — ${enrollment.academic_year_name}`
+                      )
+                    }
+                    className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <StudentDialog
+        open={studentDialog.open}
+        student={studentDialog.item}
+        onClose={() => setStudentDialog({ open: false, item: null })}
+        onSaved={async () => load()}
+      />
+
+      <TeacherDialog
+        open={teacherDialog.open}
+        teacher={teacherDialog.item}
+        onClose={() => setTeacherDialog({ open: false, item: null })}
+        onSaved={async () => load()}
+      />
+
+      <GuardianDialog
+        open={guardianDialog.open}
+        guardian={guardianDialog.item}
+        onClose={() => setGuardianDialog({ open: false, item: null })}
+        onSaved={async () => load()}
+      />
+
+      <GuardianLinkDialog
+        open={linkDialog.open}
+        guardian={linkDialog.guardian}
+        students={students}
+        onClose={() => setLinkDialog({ open: false, guardian: null })}
+        onSaved={async () => load()}
+      />
+
+      <EnrollmentDialog
+        open={enrollmentDialog.open}
+        enrollment={enrollmentDialog.item}
+        students={students}
+        years={years}
+        classrooms={classrooms}
+        onClose={() => setEnrollmentDialog({ open: false, item: null })}
+        onSaved={async () => load()}
+      />
+    </div>
+  );
+}

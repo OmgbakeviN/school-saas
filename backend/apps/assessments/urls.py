@@ -1,0 +1,80 @@
+from django.urls import path
+
+from .views import (
+    AssessmentDetailView,
+    AssessmentListCreateView,
+    AssessmentOpenView,
+    AssessmentPeriodControlDetailView,
+    AssessmentPeriodControlListView,
+    AssessmentPublishView,
+    AssessmentReopenView,
+    AssessmentSubmitView,
+    AssessmentValidateView,
+    ClassroomPeriodResultsView,
+    GradebookView,
+    RecalculateYearAveragesView,
+)
+
+
+urlpatterns = [
+    path(
+        "period-controls/",
+        AssessmentPeriodControlListView.as_view(),
+        name="assessment-period-controls",
+    ),
+    path(
+        "period-controls/<int:period_id>/",
+        AssessmentPeriodControlDetailView.as_view(),
+        name="assessment-period-control-detail",
+    ),
+    path(
+        "assessments/",
+        AssessmentListCreateView.as_view(),
+        name="assessment-list",
+    ),
+    path(
+        "assessments/<int:pk>/",
+        AssessmentDetailView.as_view(),
+        name="assessment-detail",
+    ),
+    path(
+        "assessments/<int:assessment_id>/gradebook/",
+        GradebookView.as_view(),
+        name="assessment-gradebook",
+    ),
+    path(
+        "assessments/<int:assessment_id>/open/",
+        AssessmentOpenView.as_view(),
+        name="assessment-open",
+    ),
+    path(
+        "assessments/<int:assessment_id>/submit/",
+        AssessmentSubmitView.as_view(),
+        name="assessment-submit",
+    ),
+    path(
+        "assessments/<int:assessment_id>/validate/",
+        AssessmentValidateView.as_view(),
+        name="assessment-validate",
+    ),
+    path(
+        "assessments/<int:assessment_id>/publish/",
+        AssessmentPublishView.as_view(),
+        name="assessment-publish",
+    ),
+    path(
+        "assessments/<int:assessment_id>/reopen/",
+        AssessmentReopenView.as_view(),
+        name="assessment-reopen",
+    ),
+    path(
+        "results/classrooms/<int:classroom_id>/periods/<int:period_id>/",
+        ClassroomPeriodResultsView.as_view(),
+        name="classroom-period-results",
+    ),
+    path(
+        "years/<int:year_id>/recalculate-averages/",
+        RecalculateYearAveragesView.as_view(),
+        name="recalculate-year-averages",
+    ),
+]

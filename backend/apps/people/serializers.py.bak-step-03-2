@@ -1,0 +1,529 @@
+from django.db import transaction
+from rest_framework import serializers
+
+from apps.accounts.models import SchoolMembership
+from apps.academics.models import AcademicYear, Classroom
+from .models import Enrollment, Guardian, Student, StudentGuardian, Teacher
+
+
+def _next_code(model, school, field_name, prefix):
+    existing = set(
+        model.objects.filter(school=school).values_list(
+            field_name,
+            flat=True,
+        )
+    )
+    index = model.objects.filter(school=school).count() + 1
+
+    while True:
+        candidate = f"{prefix}-{index:05d}"
+        if candidate not in existing:
+            return candidate
+        index += 1
+
+
+class TenantModelSerializer(serializers.ModelSerializer):
+    def get_school(self):
+        return self.context["request"].school
+
+
+class StudentSerializer(TenantModelSerializer):
+    matricule = serializers.CharField(required=False, allow_blank=True, max_length=60)
+    current_enrollment = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Student
+        fields = [
+            "id",
+            "matricule",
+            "first_name",
+            "last_name",
+            "gender",
+            "date_of_birth",
+            "place_of_birth",
+            "nationality",
+            "address",
+            "phone",
+            "email",
+            "admission_date",
+            "status",
+            "notes",
+            "current_enrollment",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ("created_at", "updated_at")
+
+    def get_current_enrollment(self, obj):
+        enrollment = (
+            obj.enrollments
+            .select_related("academic_year", "classroom")
+            .filter(academic_year__is_active=True)
+            .first()
+        )
+
+        if not enrollment:
+            return None
+
+        return {
+            "id": enrollment.id,
+            "academic_year": enrollment.academic_year_id,
+            "academic_year_name": enrollment.academic_year.name,
+            "classroom": enrollment.classroom_id,
+            "classroom_name": enrollment.classroom.name,
+            "status": enrollment.status,
+        }
+
+    def validate_matricule(self, value):
+        value = value.strip()
+        school = self.get_school()
+
+        queryset = Student.objects.filter(
+            school=school,
+            matricule__iexact=value,
+        )
+
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if value and queryset.exists():
+            raise serializers.ValidationError(
+                "Ce matricule est déjà utilisé dans cet établissement."
+            )
+
+        return value
+
+    def create(self, validated_data):
+        school = self.get_school()
+
+        if not validated_data.get("matricule"):
+            validated_data["matricule"] = _next_code(
+                Student,
+                school,
+                "matricule",
+                "STU",
+            )
+
+        return Student.objects.create(
+            school=school,
+            **validated_data,
+        )
+
+
+class TeacherSerializer(TenantModelSerializer):
+    employee_number = serializers.CharField(required=False, allow_blank=True, max_length=60)
+    linked_account = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Teacher
+        fields = [
+            "id",
+            "user",
+            "linked_account",
+            "employee_number",
+            "first_name",
+            "last_name",
+            "phone",
+            "email",
+            "speciality",
+            "hire_date",
+            "status",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ("created_at", "updated_at")
+
+    def get_linked_account(self, obj):
+        if not obj.user:
+            return None
+
+        return {
+            "id": obj.user_id,
+            "email": obj.user.email,
+            "first_name": obj.user.first_name,
+            "last_name": obj.user.last_name,
+        }
+
+    def validate_employee_number(self, value):
+        value = value.strip()
+        school = self.get_school()
+
+        queryset = Teacher.objects.filter(
+            school=school,
+            employee_number__iexact=value,
+        )
+
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if value and queryset.exists():
+            raise serializers.ValidationError(
+                "Ce matricule enseignant est déjà utilisé."
+            )
+
+        return value
+
+    def validate_user(self, user):
+        if user is None:
+            return user
+
+        school = self.get_school()
+
+        membership = SchoolMembership.objects.filter(
+            school=school,
+            user=user,
+            is_active=True,
+            role=SchoolMembership.Role.TEACHER,
+        ).exists()
+
+        if not membership:
+            raise serializers.ValidationError(
+                "Le compte sélectionné doit être un enseignant actif de cet établissement."
+            )
+
+        queryset = Teacher.objects.filter(
+            school=school,
+            user=user,
+        )
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise serializers.ValidationError(
+                "Ce compte est déjà lié à un profil enseignant."
+            )
+
+        return user
+
+    def create(self, validated_data):
+        school = self.get_school()
+
+        if not validated_data.get("employee_number"):
+            validated_data["employee_number"] = _next_code(
+                Teacher,
+                school,
+                "employee_number",
+                "TCH",
+            )
+
+        return Teacher.objects.create(
+            school=school,
+            **validated_data,
+        )
+
+
+class GuardianSerializer(TenantModelSerializer):
+    children_count = serializers.IntegerField(read_only=True)
+    linked_account = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Guardian
+        fields = [
+            "id",
+            "user",
+            "linked_account",
+            "first_name",
+            "last_name",
+            "phone",
+            "alternate_phone",
+            "email",
+            "occupation",
+            "address",
+            "preferred_language",
+            "is_active",
+            "children_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ("created_at", "updated_at")
+
+    def get_linked_account(self, obj):
+        if not obj.user:
+            return None
+
+        return {
+            "id": obj.user_id,
+            "email": obj.user.email,
+            "first_name": obj.user.first_name,
+            "last_name": obj.user.last_name,
+        }
+
+    def validate_user(self, user):
+        if user is None:
+            return user
+
+        school = self.get_school()
+
+        membership = SchoolMembership.objects.filter(
+            school=school,
+            user=user,
+            is_active=True,
+        ).exists()
+
+        if not membership:
+            raise serializers.ValidationError(
+                "Ce compte n'appartient pas à cet établissement."
+            )
+
+        return user
+
+    def create(self, validated_data):
+        return Guardian.objects.create(
+            school=self.get_school(),
+            **validated_data,
+        )
+
+
+class StudentGuardianSerializer(TenantModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    student_matricule = serializers.CharField(
+        source="student.matricule",
+        read_only=True,
+    )
+    guardian_name = serializers.SerializerMethodField()
+    guardian_phone = serializers.CharField(
+        source="guardian.phone",
+        read_only=True,
+    )
+    relationship_label = serializers.CharField(
+        source="get_relationship_display",
+        read_only=True,
+    )
+
+    class Meta:
+        model = StudentGuardian
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "student_matricule",
+            "guardian",
+            "guardian_name",
+            "guardian_phone",
+            "relationship",
+            "relationship_label",
+            "is_primary",
+            "receives_notifications",
+            "can_receive_results",
+            "created_at",
+        ]
+        read_only_fields = ("created_at",)
+
+    def get_student_name(self, obj):
+        return f"{obj.student.last_name} {obj.student.first_name}".strip()
+
+    def get_guardian_name(self, obj):
+        return f"{obj.guardian.last_name} {obj.guardian.first_name}".strip()
+
+    def validate_student(self, student):
+        if student.school_id != self.get_school().id:
+            raise serializers.ValidationError(
+                "Cet élève n'appartient pas à votre établissement."
+            )
+        return student
+
+    def validate_guardian(self, guardian):
+        if guardian.school_id != self.get_school().id:
+            raise serializers.ValidationError(
+                "Ce parent/tuteur n'appartient pas à votre établissement."
+            )
+        return guardian
+
+    def validate(self, attrs):
+        school = self.get_school()
+        student = attrs.get(
+            "student",
+            getattr(self.instance, "student", None),
+        )
+        guardian = attrs.get(
+            "guardian",
+            getattr(self.instance, "guardian", None),
+        )
+
+        queryset = StudentGuardian.objects.filter(
+            school=school,
+            student=student,
+            guardian=guardian,
+        )
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise serializers.ValidationError(
+                "Ce parent/tuteur est déjà lié à cet élève."
+            )
+
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        school = self.get_school()
+        student = validated_data["student"]
+
+        if validated_data.get("is_primary"):
+            StudentGuardian.objects.filter(
+                school=school,
+                student=student,
+                is_primary=True,
+            ).update(is_primary=False)
+
+        return StudentGuardian.objects.create(
+            school=school,
+            **validated_data,
+        )
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        if validated_data.get("is_primary"):
+            StudentGuardian.objects.filter(
+                school=instance.school,
+                student=instance.student,
+                is_primary=True,
+            ).exclude(pk=instance.pk).update(is_primary=False)
+
+        return super().update(instance, validated_data)
+
+
+class EnrollmentSerializer(TenantModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    student_matricule = serializers.CharField(
+        source="student.matricule",
+        read_only=True,
+    )
+    academic_year_name = serializers.CharField(
+        source="academic_year.name",
+        read_only=True,
+    )
+    classroom_name = serializers.CharField(
+        source="classroom.name",
+        read_only=True,
+    )
+    level_name = serializers.CharField(
+        source="classroom.level.name",
+        read_only=True,
+    )
+    cycle_name = serializers.CharField(
+        source="classroom.level.cycle.name",
+        read_only=True,
+    )
+    section_name = serializers.CharField(
+        source="classroom.level.cycle.section.name",
+        read_only=True,
+    )
+    promotion_decision_label = serializers.CharField(
+        source="get_promotion_decision_display",
+        read_only=True,
+    )
+
+    class Meta:
+        model = Enrollment
+        fields = [
+            "id",
+            "student",
+            "student_name",
+            "student_matricule",
+            "academic_year",
+            "academic_year_name",
+            "classroom",
+            "classroom_name",
+            "level_name",
+            "cycle_name",
+            "section_name",
+            "enrollment_date",
+            "roll_number",
+            "status",
+            "final_average",
+            "promotion_decision",
+            "promotion_decision_label",
+            "decision_reason",
+            "next_enrollment",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ("created_at", "updated_at")
+
+    def get_student_name(self, obj):
+        return f"{obj.student.last_name} {obj.student.first_name}".strip()
+
+    def validate_student(self, student):
+        if student.school_id != self.get_school().id:
+            raise serializers.ValidationError(
+                "Cet élève n'appartient pas à votre établissement."
+            )
+        return student
+
+    def validate_academic_year(self, academic_year):
+        if academic_year.school_id != self.get_school().id:
+            raise serializers.ValidationError(
+                "Cette année scolaire n'appartient pas à votre établissement."
+            )
+        return academic_year
+
+    def validate_classroom(self, classroom):
+        if classroom.school_id != self.get_school().id:
+            raise serializers.ValidationError(
+                "Cette classe n'appartient pas à votre établissement."
+            )
+        return classroom
+
+    def validate_next_enrollment(self, next_enrollment):
+        if next_enrollment and next_enrollment.school_id != self.get_school().id:
+            raise serializers.ValidationError(
+                "L'inscription suivante n'appartient pas à cet établissement."
+            )
+        return next_enrollment
+
+    def validate(self, attrs):
+        school = self.get_school()
+
+        student = attrs.get(
+            "student",
+            getattr(self.instance, "student", None),
+        )
+        year = attrs.get(
+            "academic_year",
+            getattr(self.instance, "academic_year", None),
+        )
+        classroom = attrs.get(
+            "classroom",
+            getattr(self.instance, "classroom", None),
+        )
+
+        if classroom and year and classroom.academic_year_id != year.id:
+            raise serializers.ValidationError({
+                "classroom": (
+                    "La classe doit appartenir à l'année scolaire sélectionnée."
+                )
+            })
+
+        queryset = Enrollment.objects.filter(
+            school=school,
+            student=student,
+            academic_year=year,
+        )
+
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise serializers.ValidationError({
+                "student": "Cet élève possède déjà une inscription pour cette année scolaire."
+            })
+
+        return attrs
+
+    def create(self, validated_data):
+        return Enrollment.objects.create(
+            school=self.get_school(),
+            **validated_data,
+        )
+
+
+class PeopleSummarySerializer(serializers.Serializer):
+    students = serializers.IntegerField()
+    active_students = serializers.IntegerField()
+    teachers = serializers.IntegerField()
+    active_teachers = serializers.IntegerField()
+    guardians = serializers.IntegerField()
+    enrollments = serializers.IntegerField()

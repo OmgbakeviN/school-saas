@@ -1,0 +1,419 @@
+from django.db import transaction
+from django.db.models.deletion import ProtectedError
+from django.utils.text import slugify
+from rest_framework import generics, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+
+from apps.accounts.permissions import IsSchoolAdministrator
+from .models import (
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
+    AcademicPeriod,
+    AcademicPolicy,
+    AcademicYear,
+    Classroom,
+    Cycle,
+    Level,
+    LevelSubject,
+    Section,
+    Subject,
+)
+from .permissions import AcademicStructurePermission
+from .serializers import (
+    AcademicPeriodSerializer,
+    BulkLevelSubjectAssignmentSerializer,
+    AcademicPolicySerializer,
+    AcademicYearSerializer,
+    ClassroomSerializer,
+    CycleSerializer,
+    LevelSerializer,
+    LevelSubjectSerializer,
+    SectionSerializer,
+    SubjectSerializer,
+)
+
+
+class TenantScopedListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AcademicStructurePermission]
+
+    def get_queryset(self):
+        return self.queryset.filter(school=self.request.school)
+
+
+class TenantScopedDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AcademicStructurePermission]
+
+    def get_queryset(self):
+        return self.queryset.filter(school=self.request.school)
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {
+                    "detail": (
+                        "Cet élément est déjà utilisé. "
+                        "Désactivez-le au lieu de le supprimer."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+
+class AcademicYearListCreateView(TenantScopedListCreateView):
+    queryset = AcademicYear.objects.all()
+    serializer_class = AcademicYearSerializer
+
+
+class AcademicYearDetailView(TenantScopedDetailView):
+    queryset = AcademicYear.objects.all()
+    serializer_class = AcademicYearSerializer
+
+
+class SectionListCreateView(TenantScopedListCreateView):
+    queryset = Section.objects.all()
+    serializer_class = SectionSerializer
+
+
+class SectionDetailView(TenantScopedDetailView):
+    queryset = Section.objects.all()
+    serializer_class = SectionSerializer
+
+
+class CycleListCreateView(TenantScopedListCreateView):
+    queryset = Cycle.objects.select_related("section").all()
+    serializer_class = CycleSerializer
+
+
+class CycleDetailView(TenantScopedDetailView):
+    queryset = Cycle.objects.select_related("section").all()
+    serializer_class = CycleSerializer
+
+
+class LevelListCreateView(TenantScopedListCreateView):
+    queryset = Level.objects.select_related("cycle", "cycle__section").all()
+    serializer_class = LevelSerializer
+
+
+class LevelDetailView(TenantScopedDetailView):
+    queryset = Level.objects.select_related("cycle", "cycle__section").all()
+    serializer_class = LevelSerializer
+
+
+class ClassroomListCreateView(TenantScopedListCreateView):
+    queryset = Classroom.objects.select_related(
+        "academic_year",
+        "level",
+        "level__cycle",
+        "level__cycle__section",
+    ).all()
+    serializer_class = ClassroomSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        academic_year = self.request.query_params.get("academic_year")
+        if academic_year:
+            queryset = queryset.filter(academic_year_id=academic_year)
+        return queryset
+
+
+class ClassroomDetailView(TenantScopedDetailView):
+    queryset = Classroom.objects.select_related(
+        "academic_year",
+        "level",
+        "level__cycle",
+        "level__cycle__section",
+    ).all()
+    serializer_class = ClassroomSerializer
+
+
+FRENCH_PRIMARY = ["SIL", "CP", "CE1", "CE2", "CM1", "CM2"]
+ENGLISH_PRIMARY = ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6"]
+
+FRENCH_SECONDARY = ["6e", "5e", "4e", "3e", "2nde", "1ère", "Terminale"]
+ENGLISH_SECONDARY = [
+    "Form 1",
+    "Form 2",
+    "Form 3",
+    "Form 4",
+    "Form 5",
+    "Lower Sixth",
+    "Upper Sixth",
+]
+
+
+def _section_templates(school):
+    if school.language_mode == "BILINGUAL":
+        return [
+            ("Section francophone", "fr", Section.Language.FRENCH),
+            ("English section", "en", Section.Language.ENGLISH),
+        ]
+
+    if school.language_mode == "ENGLISH":
+        return [("English section", "en", Section.Language.ENGLISH)]
+
+    return [("Section francophone", "fr", Section.Language.FRENCH)]
+
+
+def _cycle_templates(school, language):
+    cycles = []
+
+    if school.education_level in {"PRIMARY", "PRIMARY_SECONDARY"}:
+        if language == Section.Language.ENGLISH:
+            cycles.append(("Primary", "primary", Cycle.Kind.PRIMARY, ENGLISH_PRIMARY))
+        else:
+            cycles.append(("Primaire", "primaire", Cycle.Kind.PRIMARY, FRENCH_PRIMARY))
+
+    if school.education_level in {"SECONDARY", "PRIMARY_SECONDARY"}:
+        if language == Section.Language.ENGLISH:
+            cycles.append(("Secondary", "secondary", Cycle.Kind.SECONDARY, ENGLISH_SECONDARY))
+        else:
+            cycles.append(("Secondaire", "secondaire", Cycle.Kind.SECONDARY, FRENCH_SECONDARY))
+
+    return cycles
+
+
+@extend_schema(request=OpenApiTypes.OBJECT, responses={200: OpenApiTypes.OBJECT}, tags=["Academics"])
+@api_view(["POST"])
+@permission_classes([IsSchoolAdministrator])
+@transaction.atomic
+def bootstrap_structure(request):
+    school = request.school
+    created = {
+        "sections": 0,
+        "cycles": 0,
+        "levels": 0,
+    }
+
+    for section_order, (section_name, section_code, language) in enumerate(
+        _section_templates(school),
+        start=1,
+    ):
+        section, was_created = Section.objects.get_or_create(
+            school=school,
+            code=section_code,
+            defaults={
+                "name": section_name,
+                "language": language,
+                "order": section_order,
+            },
+        )
+        if was_created:
+            created["sections"] += 1
+
+        for cycle_order, (cycle_name, cycle_code_base, kind, level_names) in enumerate(
+            _cycle_templates(school, language),
+            start=1,
+        ):
+            cycle_code = f"{section.code}-{cycle_code_base}"
+            cycle, was_created = Cycle.objects.get_or_create(
+                school=school,
+                code=cycle_code,
+                defaults={
+                    "section": section,
+                    "name": cycle_name,
+                    "kind": kind,
+                    "order": cycle_order,
+                },
+            )
+            if was_created:
+                created["cycles"] += 1
+
+            for level_order, level_name in enumerate(level_names, start=1):
+                level_code = slugify(level_name)
+                _, was_created = Level.objects.get_or_create(
+                    school=school,
+                    cycle=cycle,
+                    code=level_code,
+                    defaults={
+                        "name": level_name,
+                        "order": level_order,
+                    },
+                )
+                if was_created:
+                    created["levels"] += 1
+
+    return Response({
+        "message": "Structure suggérée générée. Vous pouvez maintenant la modifier.",
+        "created": created,
+    })
+
+
+class AcademicPeriodListCreateView(TenantScopedListCreateView):
+    queryset = AcademicPeriod.objects.select_related("academic_year").all()
+    serializer_class = AcademicPeriodSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        academic_year = self.request.query_params.get("academic_year")
+
+        if academic_year:
+            queryset = queryset.filter(academic_year_id=academic_year)
+
+        return queryset
+
+
+class AcademicPeriodDetailView(TenantScopedDetailView):
+    queryset = AcademicPeriod.objects.select_related("academic_year").all()
+    serializer_class = AcademicPeriodSerializer
+
+
+class SubjectListCreateView(TenantScopedListCreateView):
+    queryset = Subject.objects.all()
+    serializer_class = SubjectSerializer
+
+
+class SubjectDetailView(TenantScopedDetailView):
+    queryset = Subject.objects.all()
+    serializer_class = SubjectSerializer
+
+
+class LevelSubjectListCreateView(TenantScopedListCreateView):
+    queryset = LevelSubject.objects.select_related(
+        "level",
+        "level__cycle",
+        "level__cycle__section",
+        "subject",
+    ).all()
+    serializer_class = LevelSubjectSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        level = self.request.query_params.get("level")
+
+        if level:
+            queryset = queryset.filter(level_id=level)
+
+        return queryset
+
+
+class LevelSubjectDetailView(TenantScopedDetailView):
+    queryset = LevelSubject.objects.select_related(
+        "level",
+        "level__cycle",
+        "level__cycle__section",
+        "subject",
+    ).all()
+    serializer_class = LevelSubjectSerializer
+
+
+@extend_schema(request=OpenApiTypes.OBJECT, responses={200: OpenApiTypes.OBJECT}, tags=["Academics"])
+@api_view(["GET", "PATCH"])
+@permission_classes([AcademicStructurePermission])
+def academic_policy(request):
+    policy, _ = AcademicPolicy.objects.get_or_create(
+        school=request.school,
+    )
+
+    if request.method == "GET":
+        return Response(
+            AcademicPolicySerializer(
+                policy,
+                context={"request": request},
+            ).data
+        )
+
+    serializer = AcademicPolicySerializer(
+        policy,
+        data=request.data,
+        partial=True,
+        context={"request": request},
+    )
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+
+    return Response(serializer.data)
+
+
+@extend_schema(request=OpenApiTypes.OBJECT, responses={200: OpenApiTypes.OBJECT}, tags=["Academics"])
+@api_view(["POST"])
+@permission_classes([IsSchoolAdministrator])
+@transaction.atomic
+def bootstrap_periods(request):
+    academic_year_id = request.data.get("academic_year")
+
+    academic_year = AcademicYear.objects.filter(
+        id=academic_year_id,
+        school=request.school,
+    ).first()
+
+    if not academic_year:
+        return Response(
+            {"detail": "Année scolaire introuvable."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if academic_year.period_system == AcademicYear.PeriodSystem.CUSTOM:
+        return Response(
+            {
+                "detail": (
+                    "Cette année utilise un découpage personnalisé. "
+                    "Créez les périodes manuellement."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if academic_year.period_system == AcademicYear.PeriodSystem.SEMESTER:
+        count = 2
+        kind = AcademicPeriod.Kind.SEMESTER
+        french_prefix = "Semestre"
+        english_prefix = "Semester"
+    else:
+        count = 3
+        kind = AcademicPeriod.Kind.TRIMESTER
+        french_prefix = "Trimestre"
+        english_prefix = "Term"
+
+    english_school = request.school.language_mode == "ENGLISH"
+    prefix = english_prefix if english_school else french_prefix
+
+    created = 0
+
+    for order in range(1, count + 1):
+        _, was_created = AcademicPeriod.objects.get_or_create(
+            school=request.school,
+            academic_year=academic_year,
+            code=f"{kind.lower()}-{order}",
+            defaults={
+                "name": f"{prefix} {order}",
+                "kind": kind,
+                "order": order,
+                "weight": 1,
+            },
+        )
+
+        if was_created:
+            created += 1
+
+    return Response({
+        "message": "Périodes générées.",
+        "created": created,
+    })
+
+
+@extend_schema(request=OpenApiTypes.OBJECT, responses={200: OpenApiTypes.OBJECT}, tags=["Academics"])
+@api_view(["POST"])
+@permission_classes([IsSchoolAdministrator])
+def bulk_assign_subject(request):
+    serializer = BulkLevelSubjectAssignmentSerializer(
+        data=request.data,
+        context={"request": request},
+    )
+    serializer.is_valid(raise_exception=True)
+    result = serializer.save()
+
+    return Response(
+        {
+            "created_count": result["created_count"],
+            "updated_count": result["updated_count"],
+            "assignments": LevelSubjectSerializer(
+                result["assignments"],
+                many=True,
+                context={"request": request},
+            ).data,
+        },
+        status=status.HTTP_200_OK,
+    )

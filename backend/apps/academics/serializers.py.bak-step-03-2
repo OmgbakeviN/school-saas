@@ -1,0 +1,620 @@
+from django.db import transaction
+from django.utils.text import slugify
+from rest_framework import serializers
+
+from .models import (
+    AcademicPeriod,
+    AcademicPolicy,
+    AcademicYear,
+    Classroom,
+    Cycle,
+    Level,
+    LevelSubject,
+    Section,
+    Subject,
+)
+
+
+class TenantModelSerializer(serializers.ModelSerializer):
+    def get_school(self):
+        return self.context["request"].school
+
+
+class AcademicYearSerializer(TenantModelSerializer):
+    class Meta:
+        model = AcademicYear
+        fields = [
+            "id",
+            "name",
+            "start_date",
+            "end_date",
+            "period_system",
+            "is_active",
+            "is_closed",
+            "created_at",
+        ]
+        read_only_fields = ("created_at",)
+
+    def validate(self, attrs):
+        start = attrs.get("start_date", getattr(self.instance, "start_date", None))
+        end = attrs.get("end_date", getattr(self.instance, "end_date", None))
+
+        if start and end and start >= end:
+            raise serializers.ValidationError({
+                "end_date": "La date de fin doit être postérieure à la date de début."
+            })
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        school = self.get_school()
+
+        if validated_data.get("is_active"):
+            AcademicYear.objects.filter(school=school, is_active=True).update(is_active=False)
+
+        return AcademicYear.objects.create(school=school, **validated_data)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        if validated_data.get("is_active"):
+            AcademicYear.objects.filter(
+                school=instance.school,
+                is_active=True,
+            ).exclude(pk=instance.pk).update(is_active=False)
+
+        return super().update(instance, validated_data)
+
+
+class SectionSerializer(TenantModelSerializer):
+    class Meta:
+        model = Section
+        fields = ["id", "name", "code", "language", "order", "is_active"]
+
+    def validate_code(self, value):
+        return slugify(value)
+
+    def create(self, validated_data):
+        return Section.objects.create(school=self.get_school(), **validated_data)
+
+
+class CycleSerializer(TenantModelSerializer):
+    section_name = serializers.CharField(source="section.name", read_only=True)
+    section_language = serializers.CharField(source="section.language", read_only=True)
+    effective_max_score = serializers.SerializerMethodField()
+    effective_promotion_threshold = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Cycle
+        fields = [
+            "id",
+            "section",
+            "section_name",
+            "section_language",
+            "name",
+            "code",
+            "kind",
+            "order",
+            "is_active",
+            "max_score_override",
+            "promotion_threshold_override",
+            "effective_max_score",
+            "effective_promotion_threshold",
+        ]
+
+    def validate_code(self, value):
+        return slugify(value)
+
+    def validate_section(self, section):
+        if section.school_id != self.get_school().id:
+            raise serializers.ValidationError("Cette section n'appartient pas à votre établissement.")
+        return section
+
+    def get_effective_max_score(self, obj):
+        policy, _ = AcademicPolicy.objects.get_or_create(school=obj.school)
+        return obj.max_score_override if obj.max_score_override is not None else policy.default_max_score
+
+    def get_effective_promotion_threshold(self, obj):
+        policy, _ = AcademicPolicy.objects.get_or_create(school=obj.school)
+        return (
+            obj.promotion_threshold_override
+            if obj.promotion_threshold_override is not None
+            else policy.default_promotion_threshold
+        )
+
+    def validate(self, attrs):
+        policy, _ = AcademicPolicy.objects.get_or_create(
+            school=self.get_school()
+        )
+        max_override = attrs.get(
+            "max_score_override",
+            getattr(self.instance, "max_score_override", None),
+        )
+        threshold_override = attrs.get(
+            "promotion_threshold_override",
+            getattr(self.instance, "promotion_threshold_override", None),
+        )
+
+        effective_max = (
+            max_override
+            if max_override is not None
+            else policy.default_max_score
+        )
+        effective_threshold = (
+            threshold_override
+            if threshold_override is not None
+            else policy.default_promotion_threshold
+        )
+
+        if effective_max <= 0:
+            raise serializers.ValidationError({
+                "max_score_override": "La note maximale doit être supérieure à zéro."
+            })
+        if effective_threshold < 0 or effective_threshold > effective_max:
+            raise serializers.ValidationError({
+                "promotion_threshold_override": "Le seuil doit être compris entre 0 et la note maximale effective."
+            })
+        return attrs
+
+    def create(self, validated_data):
+        return Cycle.objects.create(school=self.get_school(), **validated_data)
+
+
+class LevelSerializer(TenantModelSerializer):
+    cycle_name = serializers.CharField(source="cycle.name", read_only=True)
+    section_id = serializers.IntegerField(source="cycle.section_id", read_only=True)
+    section_name = serializers.CharField(source="cycle.section.name", read_only=True)
+
+    class Meta:
+        model = Level
+        fields = [
+            "id",
+            "cycle",
+            "cycle_name",
+            "section_id",
+            "section_name",
+            "name",
+            "code",
+            "order",
+            "is_active",
+            "max_score_override",
+            "promotion_threshold_override",
+            "effective_max_score",
+            "effective_promotion_threshold",
+        ]
+
+    effective_max_score = serializers.SerializerMethodField()
+    effective_promotion_threshold = serializers.SerializerMethodField()
+
+    def get_effective_max_score(self, obj):
+        policy, _ = AcademicPolicy.objects.get_or_create(school=obj.school)
+        if obj.max_score_override is not None:
+            return obj.max_score_override
+        if obj.cycle.max_score_override is not None:
+            return obj.cycle.max_score_override
+        return policy.default_max_score
+
+    def get_effective_promotion_threshold(self, obj):
+        policy, _ = AcademicPolicy.objects.get_or_create(school=obj.school)
+        if obj.promotion_threshold_override is not None:
+            return obj.promotion_threshold_override
+        if obj.cycle.promotion_threshold_override is not None:
+            return obj.cycle.promotion_threshold_override
+        return policy.default_promotion_threshold
+
+    def validate_code(self, value):
+        return slugify(value)
+
+    def validate(self, attrs):
+        cycle = attrs.get(
+            "cycle",
+            getattr(self.instance, "cycle", None),
+        )
+        policy, _ = AcademicPolicy.objects.get_or_create(
+            school=self.get_school()
+        )
+        max_override = attrs.get(
+            "max_score_override",
+            getattr(self.instance, "max_score_override", None),
+        )
+        threshold_override = attrs.get(
+            "promotion_threshold_override",
+            getattr(self.instance, "promotion_threshold_override", None),
+        )
+
+        inherited_max = (
+            cycle.max_score_override
+            if cycle and cycle.max_score_override is not None
+            else policy.default_max_score
+        )
+        inherited_threshold = (
+            cycle.promotion_threshold_override
+            if cycle and cycle.promotion_threshold_override is not None
+            else policy.default_promotion_threshold
+        )
+
+        effective_max = (
+            max_override
+            if max_override is not None
+            else inherited_max
+        )
+        effective_threshold = (
+            threshold_override
+            if threshold_override is not None
+            else inherited_threshold
+        )
+
+        if effective_max <= 0:
+            raise serializers.ValidationError({
+                "max_score_override": "La note maximale doit être supérieure à zéro."
+            })
+        if effective_threshold < 0 or effective_threshold > effective_max:
+            raise serializers.ValidationError({
+                "promotion_threshold_override": "Le seuil doit être compris entre 0 et la note maximale effective."
+            })
+        return attrs
+
+    def validate_cycle(self, cycle):
+        if cycle.school_id != self.get_school().id:
+            raise serializers.ValidationError("Ce cycle n'appartient pas à votre établissement.")
+        return cycle
+
+    def create(self, validated_data):
+        return Level.objects.create(school=self.get_school(), **validated_data)
+
+
+class ClassroomSerializer(TenantModelSerializer):
+    academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
+    level_name = serializers.CharField(source="level.name", read_only=True)
+    cycle_name = serializers.CharField(source="level.cycle.name", read_only=True)
+    section_name = serializers.CharField(source="level.cycle.section.name", read_only=True)
+
+    class Meta:
+        model = Classroom
+        fields = [
+            "id",
+            "academic_year",
+            "academic_year_name",
+            "level",
+            "level_name",
+            "cycle_name",
+            "section_name",
+            "name",
+            "code",
+            "capacity",
+            "order",
+            "is_active",
+        ]
+
+    def validate_code(self, value):
+        return slugify(value)
+
+    def validate_academic_year(self, academic_year):
+        if academic_year.school_id != self.get_school().id:
+            raise serializers.ValidationError("Cette année scolaire n'appartient pas à votre établissement.")
+        return academic_year
+
+    def validate_level(self, level):
+        if level.school_id != self.get_school().id:
+            raise serializers.ValidationError("Ce niveau n'appartient pas à votre établissement.")
+        return level
+
+    def create(self, validated_data):
+        return Classroom.objects.create(school=self.get_school(), **validated_data)
+
+
+class AcademicPolicySerializer(TenantModelSerializer):
+    class Meta:
+        model = AcademicPolicy
+        fields = [
+            "default_max_score",
+            "default_promotion_threshold",
+            "updated_at",
+        ]
+        read_only_fields = ("updated_at",)
+
+    def validate(self, attrs):
+        max_score = attrs.get(
+            "default_max_score",
+            getattr(self.instance, "default_max_score", 20),
+        )
+        threshold = attrs.get(
+            "default_promotion_threshold",
+            getattr(self.instance, "default_promotion_threshold", 10),
+        )
+
+        if max_score <= 0:
+            raise serializers.ValidationError({
+                "default_max_score": "La note maximale doit être supérieure à zéro."
+            })
+
+        if threshold < 0 or threshold > max_score:
+            raise serializers.ValidationError({
+                "default_promotion_threshold": (
+                    "Le seuil de passage doit être compris entre 0 et la note maximale."
+                )
+            })
+
+        return attrs
+
+
+class AcademicPeriodSerializer(TenantModelSerializer):
+    academic_year_name = serializers.CharField(
+        source="academic_year.name",
+        read_only=True,
+    )
+
+    class Meta:
+        model = AcademicPeriod
+        fields = [
+            "id",
+            "academic_year",
+            "academic_year_name",
+            "name",
+            "code",
+            "kind",
+            "order",
+            "weight",
+            "start_date",
+            "end_date",
+            "is_active",
+        ]
+
+    def validate_code(self, value):
+        return slugify(value)
+
+    def validate_academic_year(self, academic_year):
+        if academic_year.school_id != self.get_school().id:
+            raise serializers.ValidationError(
+                "Cette année scolaire n'appartient pas à votre établissement."
+            )
+        return academic_year
+
+    def validate(self, attrs):
+        start = attrs.get("start_date", getattr(self.instance, "start_date", None))
+        end = attrs.get("end_date", getattr(self.instance, "end_date", None))
+        weight = attrs.get("weight", getattr(self.instance, "weight", 1))
+
+        if start and end and start >= end:
+            raise serializers.ValidationError({
+                "end_date": "La date de fin doit être postérieure à la date de début."
+            })
+
+        if weight <= 0:
+            raise serializers.ValidationError({
+                "weight": "Le poids doit être supérieur à zéro."
+            })
+
+        return attrs
+
+    def create(self, validated_data):
+        return AcademicPeriod.objects.create(
+            school=self.get_school(),
+            **validated_data,
+        )
+
+
+class SubjectSerializer(TenantModelSerializer):
+    class Meta:
+        model = Subject
+        fields = [
+            "id",
+            "name",
+            "code",
+            "category",
+            "default_teaching_language",
+            "is_active",
+        ]
+
+    def validate_code(self, value):
+        return slugify(value)
+
+    def create(self, validated_data):
+        return Subject.objects.create(
+            school=self.get_school(),
+            **validated_data,
+        )
+
+
+class LevelSubjectSerializer(TenantModelSerializer):
+    subject_name = serializers.CharField(
+        source="subject.name",
+        read_only=True,
+    )
+    subject_code = serializers.CharField(
+        source="subject.code",
+        read_only=True,
+    )
+    level_name = serializers.CharField(
+        source="level.name",
+        read_only=True,
+    )
+    cycle_name = serializers.CharField(
+        source="level.cycle.name",
+        read_only=True,
+    )
+    section_name = serializers.CharField(
+        source="level.cycle.section.name",
+        read_only=True,
+    )
+    effective_max_score = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LevelSubject
+        fields = [
+            "id",
+            "level",
+            "level_name",
+            "cycle_name",
+            "section_name",
+            "subject",
+            "subject_name",
+            "subject_code",
+            "coefficient",
+            "max_score_override",
+            "effective_max_score",
+            "teaching_language",
+            "order",
+            "is_active",
+        ]
+
+    def get_effective_max_score(self, obj):
+        policy, _ = AcademicPolicy.objects.get_or_create(
+            school=obj.school,
+        )
+
+        if obj.max_score_override is not None:
+            return obj.max_score_override
+
+        if obj.level.max_score_override is not None:
+            return obj.level.max_score_override
+
+        if obj.level.cycle.max_score_override is not None:
+            return obj.level.cycle.max_score_override
+
+        return policy.default_max_score
+
+    def validate_level(self, level):
+        if level.school_id != self.get_school().id:
+            raise serializers.ValidationError(
+                "Ce niveau n'appartient pas à votre établissement."
+            )
+        return level
+
+    def validate_subject(self, subject):
+        if subject.school_id != self.get_school().id:
+            raise serializers.ValidationError(
+                "Cette matière n'appartient pas à votre établissement."
+            )
+        return subject
+
+    def validate(self, attrs):
+        coefficient = attrs.get(
+            "coefficient",
+            getattr(self.instance, "coefficient", 1),
+        )
+        max_score = attrs.get(
+            "max_score_override",
+            getattr(self.instance, "max_score_override", None),
+        )
+
+        if coefficient <= 0:
+            raise serializers.ValidationError({
+                "coefficient": "Le coefficient doit être supérieur à zéro."
+            })
+
+        if max_score is not None and max_score <= 0:
+            raise serializers.ValidationError({
+                "max_score_override": "La note maximale doit être supérieure à zéro."
+            })
+
+        return attrs
+
+    def create(self, validated_data):
+        return LevelSubject.objects.create(
+            school=self.get_school(),
+            **validated_data,
+        )
+
+
+class BulkLevelSubjectAssignmentSerializer(serializers.Serializer):
+    subject = serializers.PrimaryKeyRelatedField(
+        queryset=Subject.objects.all(),
+    )
+    levels = serializers.PrimaryKeyRelatedField(
+        queryset=Level.objects.all(),
+        many=True,
+        allow_empty=False,
+    )
+    coefficient = serializers.DecimalField(
+        max_digits=7,
+        decimal_places=3,
+        min_value=0.001,
+    )
+    max_score_override = serializers.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        min_value=0.01,
+        required=False,
+        allow_null=True,
+    )
+    teaching_language = serializers.ChoiceField(
+        choices=Subject.Language.choices,
+        default=Subject.Language.DEFAULT,
+    )
+    order = serializers.IntegerField(
+        min_value=0,
+        default=0,
+    )
+    is_active = serializers.BooleanField(default=True)
+
+    def validate_subject(self, subject):
+        school = self.context["request"].school
+        if subject.school_id != school.id:
+            raise serializers.ValidationError(
+                "Cette matière n'appartient pas à votre établissement."
+            )
+        return subject
+
+    def validate_levels(self, levels):
+        school = self.context["request"].school
+
+        invalid = [
+            level.id
+            for level in levels
+            if level.school_id != school.id
+        ]
+
+        if invalid:
+            raise serializers.ValidationError(
+                "Un ou plusieurs niveaux n'appartiennent pas à votre établissement."
+            )
+
+        ids = [level.id for level in levels]
+        if len(ids) != len(set(ids)):
+            raise serializers.ValidationError(
+                "Un même niveau ne peut pas être sélectionné deux fois."
+            )
+
+        return levels
+
+    @transaction.atomic
+    def create(self, validated_data):
+        school = self.context["request"].school
+        subject = validated_data["subject"]
+        levels = validated_data["levels"]
+
+        defaults = {
+            "coefficient": validated_data["coefficient"],
+            "max_score_override": validated_data.get(
+                "max_score_override"
+            ),
+            "teaching_language": validated_data[
+                "teaching_language"
+            ],
+            "order": validated_data["order"],
+            "is_active": validated_data["is_active"],
+        }
+
+        created_count = 0
+        updated_count = 0
+        assignments = []
+
+        for level in levels:
+            assignment, created = LevelSubject.objects.update_or_create(
+                school=school,
+                level=level,
+                subject=subject,
+                defaults=defaults,
+            )
+            assignments.append(assignment)
+
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+
+        return {
+            "assignments": assignments,
+            "created_count": created_count,
+            "updated_count": updated_count,
+        }

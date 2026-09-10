@@ -1,0 +1,50 @@
+from django.urls import path
+
+from .views import (
+    EnrollmentDetailView,
+    EnrollmentListCreateView,
+    GuardianDetailView,
+    GuardianListCreateView,
+    StudentDetailView,
+    StudentGuardianDetailView,
+    StudentGuardianListCreateView,
+    StudentListCreateView,
+    TeacherDetailView,
+    TeacherListCreateView,
+    people_summary,
+)
+
+urlpatterns = [
+    path("summary/", people_summary, name="people-summary"),
+
+    path("students/", StudentListCreateView.as_view(), name="student-list"),
+    path("students/<int:pk>/", StudentDetailView.as_view(), name="student-detail"),
+
+    path("teachers/", TeacherListCreateView.as_view(), name="teacher-list"),
+    path("teachers/<int:pk>/", TeacherDetailView.as_view(), name="teacher-detail"),
+
+    path("guardians/", GuardianListCreateView.as_view(), name="guardian-list"),
+    path("guardians/<int:pk>/", GuardianDetailView.as_view(), name="guardian-detail"),
+
+    path(
+        "guardian-links/",
+        StudentGuardianListCreateView.as_view(),
+        name="guardian-link-list",
+    ),
+    path(
+        "guardian-links/<int:pk>/",
+        StudentGuardianDetailView.as_view(),
+        name="guardian-link-detail",
+    ),
+
+    path(
+        "enrollments/",
+        EnrollmentListCreateView.as_view(),
+        name="enrollment-list",
+    ),
+    path(
+        "enrollments/<int:pk>/",
+        EnrollmentDetailView.as_view(),
+        name="enrollment-detail",
+    ),
+]

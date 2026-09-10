@@ -1,0 +1,61 @@
+from django.urls import path
+
+from .step_03_2_views import (
+    apply_promotions,
+    bulk_assign_class,
+    bulk_exit_students,
+    download_import_template,
+    export_people_list,
+    import_people_file,
+    prepare_academic_year,
+    promotion_preview,
+    re_enroll_repeaters,
+)
+
+urlpatterns = [
+    path(
+        "bulk/import/<str:entity>/",
+        import_people_file,
+        name="people-import",
+    ),
+    path(
+        "bulk/import-template/<str:entity>/",
+        download_import_template,
+        name="people-import-template",
+    ),
+    path(
+        "bulk/class-assignment/",
+        bulk_assign_class,
+        name="people-bulk-class-assignment",
+    ),
+    path(
+        "promotion/preview/",
+        promotion_preview,
+        name="people-promotion-preview",
+    ),
+    path(
+        "promotion/apply/",
+        apply_promotions,
+        name="people-promotion-apply",
+    ),
+    path(
+        "promotion/re-enroll-repeaters/",
+        re_enroll_repeaters,
+        name="people-re-enroll-repeaters",
+    ),
+    path(
+        "promotion/exit/",
+        bulk_exit_students,
+        name="people-bulk-exit",
+    ),
+    path(
+        "academic-years/prepare/",
+        prepare_academic_year,
+        name="people-prepare-academic-year",
+    ),
+    path(
+        "bulk/export/<str:entity>/",
+        export_people_list,
+        name="people-export",
+    ),
+]

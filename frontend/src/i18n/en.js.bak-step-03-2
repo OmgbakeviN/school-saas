@@ -1,0 +1,309 @@
+const en = {
+  common: {
+    active: "active",
+    delete: "Delete",
+    cancel: "Cancel",
+    back: "Back", continue: "Continue", save: "Save", loading: "Loading…",
+    optional: "optional", choose: "Choose…", logout: "Log out",
+    french: "French", english: "English"
+  },
+  brand: { name: "BE WISE School", subtitle: "School Management SaaS" },
+  auth: {
+    title: "Institution login",
+    subtitle: "Use an account that belongs to this institution.",
+    email: "Email", password: "Password", login: "Log in", logging: "Logging in…",
+    expired: "Your session has expired. Please log in again to continue."
+  },
+  nav: {
+    dashboard: "Dashboard", academics: "Academic structure", people: "People & enrollments",
+    school: "Institution", team: "Team & access"
+  },
+  dashboard: {
+    years: "Academic years", classes: "Classes", students: "Students", teachers: "Teachers",
+    foundation: "Foundation active", next: "Next major step", academics: "Academic structure",
+    configuration: "Configuration", language: "Language", cycles: "Levels", activeTeam: "Active team",
+    members: "{count} member(s)"
+  },
+  academics: {
+    step: "Step 2.1", title: "Academic structure",
+    description: "Configure the academic year first, then the Section → Cycle → Level hierarchy. Classes belong to a specific academic year.",
+    generate: "Generate suggested structure", loading: "Loading academic structure…",
+    tabs: { years: "Academic years", structure: "Sections & levels", classes: "Classes" },
+    year: {
+      new: "New academic year", name: "Name", example: "e.g. 2026/2027", start: "Start", end: "End",
+      system: "Main period system", trimesters: "Trimesters", semesters: "Semesters", custom: "Custom",
+      active: "Set as active academic year", create: "Create academic year", configured: "Configured academic years",
+      empty: "No academic year configured."
+    },
+    structure: {
+      addSection: "Add a section", addCycle: "Add a cycle", addLevel: "Add a level",
+      name: "Name", code: "Code", language: "Language", section: "Section", cycle: "Cycle", type: "Type",
+      french: "French-speaking", english: "English-speaking", bilingual: "Bilingual",
+      primary: "Primary", secondary: "Secondary", other: "Other",
+      hierarchy: "Institution hierarchy", empty: "No structure yet. Use the suggested generator or create items manually.",
+      noCycle: "No cycle."
+    },
+    classroom: {
+      createTitle: "Create a class", help: "A class belongs to an academic year. Example: Form 3 A in 2026/2027.",
+      year: "Academic year", level: "Level", name: "Name", code: "Code", capacity: "Capacity",
+      create: "Create class", configured: "Configured classes", activeYear: "Active year: {name}",
+      noActiveYear: "No active academic year", count: "{count} class(es)", empty: "No class created."
+    },
+    errors: {
+      load: "Unable to load the academic structure.", save: "Unable to save.",
+      remove: "Unable to delete this item.", generate: "Unable to generate the structure."
+    }
+  },
+  settings: {
+    readOnly: "Your role allows you to view this information but not modify it.",
+    identityTitle: "Institution identity", identityText: "Logo, name, motto and contact information.",
+    logo: "Logo", logoHint: "PNG/JPG, 3 MB max", name: "Name", acronym: "Acronym", motto: "Motto",
+    mottoPlaceholder: "Work • Discipline • Success", city: "City", country: "Country", phone: "Phone", email: "Email",
+    brandingTitle: "Branding & school model", brandingText: "These values will be reused in future report cards and portals.",
+    primaryColor: "Primary color", secondaryColor: "Secondary color", language: "Language", cycles: "Levels",
+    teachingModel: "Teaching model", french: "French-speaking", english: "English-speaking", bilingual: "Bilingual",
+    primary: "Primary", secondary: "Secondary", both: "Primary + secondary", classTeacher: "Class teacher",
+    subjectTeacher: "Subject teachers", hybrid: "Hybrid", saved: "Changes saved.",
+    saveError: "Unable to save changes."
+  },
+  members: {
+    title: "Team & access", subtitle: "Detailed teaching profiles will be added in step 3.",
+    add: "Add member", firstName: "First name", lastName: "Last name", email: "Email", initialPassword: "Initial password",
+    role: "Role", create: "Create account", loading: "Loading…", owner: "Owner", director: "Director",
+    manager: "Manager", teacher: "Teacher", accountant: "Accountant", remove: "Remove",
+    removeConfirm: "Remove {name} from this institution?", loadError: "Unable to load members.",
+    createError: "Unable to add this member."
+  }
+,
+  landing: {
+    create: "Create an institution", badge: "SaaS Foundation — Step 1",
+    title: "A configurable school system for every institution.",
+    description: "French-speaking, English-speaking or bilingual. Primary, secondary or both. The platform adapts to each institution.",
+    start: "Start setup", example: "Example", bilingual: "Bilingual", both: "Primary + secondary",
+    hybrid: "Hybrid model", isolated: "Isolated tenant",
+    portalTitle: "One portal per institution", portalText: "Each school gets its own workspace and subdomain.",
+    levelsTitle: "Primary and secondary", levelsText: "The structure adapts to the institution's academic model.",
+    tenantTitle: "Multi-tenant architecture", tenantText: "Data stays isolated within its institution."
+  },
+  onboarding: {
+    installation: "Setup", schoolStep: "Institution", modelStep: "School model", adminStep: "Administrator", doneStep: "Done",
+    schoolTitle: "Your institution", schoolText: "Let's start with its identity and portal address.", schoolName: "Institution name",
+    acronym: "Acronym", city: "City", portal: "Portal address", phone: "Phone", schoolEmail: "Institution email",
+    modelTitle: "School model", modelText: "These choices will drive the future academic configuration.", languageSection: "Language / section",
+    coveredCycles: "Education levels", teachingModel: "Teaching model", french: "French-speaking", english: "English-speaking", bilingual: "Bilingual",
+    primary: "Primary", secondary: "Secondary", both: "Primary + secondary", classTeacher: "Class teacher",
+    subjectTeachers: "Subject teachers", hybrid: "Hybrid", adminTitle: "Administrator account",
+    adminText: "This account will own the new workspace.", firstName: "First name", lastName: "Last name", email: "Email", password: "Password",
+    passwordHint: "8 characters minimum", create: "Create institution", doneTitle: "Your portal is ready.",
+    doneText: "was created. A single address is used and automatically adapts to the domain where the application is installed.",
+    yourPortal: "Your portal", openPortal: "Open portal", genericError: "An error occurred.", serverError: "Unable to contact the Django server."
+  }
+,
+academicWorkspace: {
+  structure: "Structure",
+  curriculum: "Curriculum & grading",
+},
+curriculum: {
+  step: "Step 2.2",
+  title: "Curriculum, periods & grading rules",
+  description: "Configure terms or semesters, subjects taught at each level, coefficients and promotion rules. Sequences and exams will later be created inside these periods.",
+  loading: "Loading academic curriculum…",
+  syncing: "Syncing…",
+  tabs: { periods: "Periods", subjects: "Subjects & coefficients", rules: "Grading & promotion" },
+  periods: {
+    create: "Configure periods", help: "A period is a term, semester or custom period. Sequences/exams will later be created inside it.",
+    year: "Academic year", generate: "Generate from academic year", manual: "Or create manually", name: "Name", code: "Code", type: "Type",
+    trimester: "Term", semester: "Semester", custom: "Custom", weight: "Annual weight", weightShort: "weight",
+    start: "Start", end: "End", add: "Add period", configured: "Configured periods", empty: "No period configured."
+  },
+  subjects: {
+    catalogTitle: "Subject catalogue", catalogHelp: "Create a subject once, then assign it to every level where it is taught.",
+    name: "Subject name", code: "Code", category: "Category", defaultLanguage: "Default language", add: "Add subject",
+    assignTitle: "Assign a subject to multiple levels", assignHelp: "The coefficient belongs to the level curriculum, not to the annual class.",
+    level: "Level", subject: "Subject", coefficient: "Coefficient", coefficientShort: "Coef.", maxScore: "Maximum score",
+    language: "Teaching language", assign: "Assign to levels", programTitle: "Curriculum by level",
+    programHelp: "These subjects will later be available for teaching assignments and grades.",
+    emptyAssignments: "No subject has been assigned to a level yet.", catalogConfigured: "Available subjects", emptyCatalog: "No subject in the catalogue.",
+    levels: "Target levels",
+    levelSelectionHelp: "Check every level that should receive this subject.",
+    selectedCount: "{count} selected",
+    selectAll: "Select all",
+    clearSelection: "Clear",
+    alreadyAssigned: "already assigned",
+    noLevels: "No level available.",
+    selectAtLeastOneLevel: "Select at least one level.",
+    bulkAssigned: "{created} assignment(s) created, {updated} updated.",
+    editTitle: "Edit subject",
+    editHelp: "Edit the name, code, category or default teaching language.",
+    activeSubject: "Active subject",
+    editAssignmentTitle: "Edit assignment",
+    editAssignmentHelp: "Edit the coefficient, maximum score or language for this level.",
+    activeAssignment: "Active assignment"
+  },
+  languages: { section: "Section language", bilingual: "Bilingual" },
+  rules: {
+    schoolTitle: "Institution default rule",
+    schoolHelp: "Example: one school can grade out of 20 with a promotion threshold of 10/20, while another can require 12/20. Cycles or individual levels can override this rule.",
+    maxScore: "Default maximum score", promotionThreshold: "Minimum promotion average", saved: "Grading rule saved.",
+    cycleTitle: "Cycle overrides", cycleHelp: "Leave blank to inherit from the institution.",
+    levelTitle: "Level overrides", levelHelp: "Leave a field blank to inherit from the cycle or institution. Final promotion decisions will still be validated by management.",
+    cycleThreshold: "Cycle threshold", cycleMaxScore: "Maximum score", levelThreshold: "Level threshold", levelMaxScore: "Maximum score",
+    inherit: "blank = inherit", effective: "Effective rule", noCycles: "Create cycles first.", noLevels: "Create levels first."
+  },
+  errors: {
+    load: "Unable to load the academic curriculum.", save: "Unable to save.", assign: "Unable to assign this subject.",
+    delete: "Unable to delete this item.", generatePeriods: "Unable to generate periods."
+  }
+},
+people: {
+  step: "Step 3.1",
+  title: "People & enrollments",
+  description:
+    "Manage students, teachers, parents/guardians and yearly class enrollment. The same permanent profile is kept from one school year to the next.",
+  loading: "Loading people…",
+  syncing: "Syncing…",
+  search: "Search…",
+  tabs: {
+    students: "Students",
+    teachers: "Teachers",
+    guardians: "Parents / guardians",
+    enrollments: "Enrollments",
+  },
+  summary: {
+    students: "Active students",
+    teachers: "Active teachers",
+    guardians: "Parents / guardians",
+    enrollments: "Enrollments",
+  },
+  fields: {
+    firstName: "First name",
+    lastName: "Last name",
+    phone: "Phone",
+    email: "Email",
+    address: "Address",
+    notes: "Notes",
+  },
+  gender: {
+    male: "Male",
+    female: "Female",
+    other: "Other",
+  },
+  status: {
+    active: "Active",
+    inactive: "Inactive",
+    graduated: "Graduated",
+    transferred: "Transferred",
+    withdrawn: "Withdrawn",
+  },
+  students: {
+    title: "Students",
+    help: "A student profile stays unique. Class and school-year history is kept through enrollments.",
+    add: "Add student",
+    empty: "No student registered.",
+    createTitle: "New student",
+    editTitle: "Edit student",
+    dialogHelp: "Create the student's permanent identity. Class enrollment is handled separately.",
+    matricule: "Student ID",
+    autoCode: "leave blank = generate automatically",
+    status: "Status",
+    gender: "Gender",
+    birthDate: "Date of birth",
+    birthPlace: "Place of birth",
+    nationality: "Nationality",
+    admissionDate: "Admission date",
+    notEnrolled: "not yet enrolled for the active year",
+  },
+  teachers: {
+    title: "Teachers",
+    help: "These profiles will be used in the next step for teaching assignments.",
+    add: "Add teacher",
+    empty: "No teacher registered.",
+    createTitle: "New teacher",
+    editTitle: "Edit teacher",
+    dialogHelp: "The teacher profile is separate from the login account. An account can be linked later.",
+    employeeNumber: "Teacher ID",
+    speciality: "Speciality",
+    hireDate: "Hire date",
+    status: "Status",
+  },
+  guardians: {
+    title: "Parents & guardians",
+    help: "Phone numbers will later be essential to identify parents through WhatsApp.",
+    add: "Add parent / guardian",
+    empty: "No parent or guardian registered.",
+    createTitle: "New parent / guardian",
+    editTitle: "Edit parent / guardian",
+    dialogHelp: "Save the guardian's contact details, then link the person to one or more students.",
+    alternatePhone: "Alternate phone",
+    occupation: "Occupation",
+    preferredLanguage: "Preferred language",
+    active: "Active parent / guardian",
+    children: "child(ren)",
+    link: "Link to student",
+    linkTitle: "Link parent to student",
+    linkHelp: "Create a link between {name} and a student in this institution.",
+    student: "Student",
+    relationship: "Relationship",
+    primaryContact: "Primary contact for this student",
+    notifications: "Receive notifications",
+    resultsPermission: "Allowed to receive results",
+    linksTitle: "Parent ↔ student links",
+    noLinks: "No parent-student link configured.",
+    primaryShort: "primary contact",
+  },
+  relationship: {
+    father: "Father",
+    mother: "Mother",
+    guardian: "Guardian",
+    sibling: "Sibling",
+    other: "Other",
+  },
+  enrollments: {
+    title: "Yearly enrollments",
+    help:
+      "An enrollment links a student to a class for one academic year. This model preserves the full school history.",
+    add: "Enroll student",
+    empty: "No enrollment registered.",
+    createTitle: "New enrollment",
+    editTitle: "Edit enrollment",
+    dialogHelp:
+      "A student can only have one enrollment per academic year. The class must belong to the selected year.",
+    student: "Student",
+    year: "Academic year",
+    classroom: "Class",
+    date: "Enrollment date",
+    rollNumber: "Class roll number",
+    status: "Enrollment status",
+    decision: "End-of-year decision",
+    finalAverage: "Annual average",
+    futureCalculated: "will be calculated automatically in the results step",
+    reason: "Decision reason / comment",
+    averageShort: "Avg.",
+  },
+  enrollmentStatus: {
+    active: "Enrolled",
+    completed: "Year completed",
+    transferred: "Transferred",
+    withdrawn: "Withdrawn",
+  },
+  promotion: {
+    pending: "Pending",
+    promoted: "Promoted",
+    repeated: "Repeat year",
+    graduated: "Graduated",
+    transferred: "Transferred",
+    withdrawn: "Withdrawn",
+  },
+  errors: {
+    load: "Unable to load people and enrollments.",
+    delete: "Unable to delete this item.",
+    saveStudent: "Unable to save the student.",
+    saveTeacher: "Unable to save the teacher.",
+    saveGuardian: "Unable to save the parent/guardian.",
+    linkGuardian: "Unable to create this link.",
+    saveEnrollment: "Unable to save the enrollment.",
+  },
+}
+};
+
+export default en;

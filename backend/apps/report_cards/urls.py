@@ -1,0 +1,74 @@
+from django.urls import path
+
+from .views import (
+    BulkPublishReportCardsView,
+    ClassroomAnnualResultsView,
+    ClassroomPeriodResultsView,
+    ClassroomReportCardsZipView,
+    PublishReportCardView,
+    ReportCardOptionsView,
+    ReportCardPdfView,
+    ReportCardSnapshotListView,
+    StudentAnnualResultView,
+    StudentPeriodResultView,
+    SubjectPeriodResultsView,
+)
+
+
+urlpatterns = [
+    path(
+        "options/",
+        ReportCardOptionsView.as_view(),
+        name="report-card-options",
+    ),
+    path(
+        "results/classrooms/<int:classroom_id>/periods/<int:period_id>/",
+        ClassroomPeriodResultsView.as_view(),
+        name="report-card-class-period-results",
+    ),
+    path(
+        "results/students/<int:enrollment_id>/periods/<int:period_id>/",
+        StudentPeriodResultView.as_view(),
+        name="report-card-student-period-result",
+    ),
+    path(
+        "results/subjects/<int:subject_id>/periods/<int:period_id>/",
+        SubjectPeriodResultsView.as_view(),
+        name="report-card-subject-period-results",
+    ),
+    path(
+        "results/classrooms/<int:classroom_id>/annual/",
+        ClassroomAnnualResultsView.as_view(),
+        name="report-card-class-annual-results",
+    ),
+    path(
+        "results/students/<int:enrollment_id>/annual/",
+        StudentAnnualResultView.as_view(),
+        name="report-card-student-annual-result",
+    ),
+    path(
+        "download/classroom-zip/",
+        ClassroomReportCardsZipView.as_view(),
+        name="report-card-classroom-zip",
+    ),
+    path(
+        "snapshots/",
+        ReportCardSnapshotListView.as_view(),
+        name="report-card-snapshots",
+    ),
+    path(
+        "snapshots/<int:snapshot_id>/pdf/",
+        ReportCardPdfView.as_view(),
+        name="report-card-pdf",
+    ),
+    path(
+        "publish/",
+        PublishReportCardView.as_view(),
+        name="report-card-publish",
+    ),
+    path(
+        "publish/classroom/",
+        BulkPublishReportCardsView.as_view(),
+        name="report-card-bulk-publish",
+    ),
+]

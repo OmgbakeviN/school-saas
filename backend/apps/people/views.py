@@ -1,0 +1,236 @@
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
+from django.db.models import Count, Q
+from django.db.models.deletion import ProtectedError
+from rest_framework import generics, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+
+from .models import Enrollment, Guardian, Student, StudentGuardian, Teacher
+from .permissions import PeopleManagementPermission
+from .serializers import (
+    EnrollmentSerializer,
+    GuardianSerializer,
+    PeopleSummarySerializer,
+    StudentGuardianSerializer,
+    StudentSerializer,
+    TeacherSerializer,
+)
+
+
+class TenantScopedListCreateView(generics.ListCreateAPIView):
+    permission_classes = [PeopleManagementPermission]
+
+    def get_queryset(self):
+        return self.queryset.filter(school=self.request.school)
+
+
+class TenantScopedDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [PeopleManagementPermission]
+
+    def get_queryset(self):
+        return self.queryset.filter(school=self.request.school)
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {
+                    "detail": (
+                        "Cet élément est déjà utilisé dans l'historique. "
+                        "Désactivez-le plutôt que de le supprimer."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+
+class StudentListCreateView(TenantScopedListCreateView):
+    queryset = Student.objects.all()
+    serializer_class = StudentSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        search = self.request.query_params.get("search", "").strip()
+        status_value = self.request.query_params.get("status", "").strip()
+        classroom = self.request.query_params.get("classroom", "").strip()
+        academic_year = self.request.query_params.get("academic_year", "").strip()
+
+        if search:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(matricule__icontains=search)
+            )
+
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+
+        if classroom:
+            queryset = queryset.filter(
+                enrollments__classroom_id=classroom
+            )
+
+        if academic_year:
+            queryset = queryset.filter(
+                enrollments__academic_year_id=academic_year
+            )
+
+        return queryset.distinct()
+
+
+class StudentDetailView(TenantScopedDetailView):
+    queryset = Student.objects.all()
+    serializer_class = StudentSerializer
+
+
+class TeacherListCreateView(TenantScopedListCreateView):
+    queryset = Teacher.objects.select_related("user").all()
+    serializer_class = TeacherSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search = self.request.query_params.get("search", "").strip()
+
+        if search:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(employee_number__icontains=search)
+                | Q(email__icontains=search)
+            )
+
+        return queryset
+
+
+class TeacherDetailView(TenantScopedDetailView):
+    queryset = Teacher.objects.select_related("user").all()
+    serializer_class = TeacherSerializer
+
+
+class GuardianListCreateView(TenantScopedListCreateView):
+    queryset = Guardian.objects.select_related("user").annotate(
+        children_count=Count("student_links", distinct=True)
+    )
+    serializer_class = GuardianSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search = self.request.query_params.get("search", "").strip()
+
+        if search:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(phone__icontains=search)
+                | Q(email__icontains=search)
+            )
+
+        return queryset
+
+
+class GuardianDetailView(TenantScopedDetailView):
+    queryset = Guardian.objects.select_related("user").annotate(
+        children_count=Count("student_links", distinct=True)
+    )
+    serializer_class = GuardianSerializer
+
+
+class StudentGuardianListCreateView(TenantScopedListCreateView):
+    queryset = StudentGuardian.objects.select_related(
+        "student",
+        "guardian",
+    ).all()
+    serializer_class = StudentGuardianSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        student = self.request.query_params.get("student")
+        guardian = self.request.query_params.get("guardian")
+
+        if student:
+            queryset = queryset.filter(student_id=student)
+
+        if guardian:
+            queryset = queryset.filter(guardian_id=guardian)
+
+        return queryset
+
+
+class StudentGuardianDetailView(TenantScopedDetailView):
+    queryset = StudentGuardian.objects.select_related(
+        "student",
+        "guardian",
+    ).all()
+    serializer_class = StudentGuardianSerializer
+
+
+class EnrollmentListCreateView(TenantScopedListCreateView):
+    queryset = Enrollment.objects.select_related(
+        "student",
+        "academic_year",
+        "classroom",
+        "classroom__level",
+        "classroom__level__cycle",
+        "classroom__level__cycle__section",
+    ).all()
+    serializer_class = EnrollmentSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        student = self.request.query_params.get("student")
+        academic_year = self.request.query_params.get("academic_year")
+        classroom = self.request.query_params.get("classroom")
+        status_value = self.request.query_params.get("status")
+
+        if student:
+            queryset = queryset.filter(student_id=student)
+
+        if academic_year:
+            queryset = queryset.filter(academic_year_id=academic_year)
+
+        if classroom:
+            queryset = queryset.filter(classroom_id=classroom)
+
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+
+        return queryset
+
+
+class EnrollmentDetailView(TenantScopedDetailView):
+    queryset = Enrollment.objects.select_related(
+        "student",
+        "academic_year",
+        "classroom",
+        "classroom__level",
+        "classroom__level__cycle",
+        "classroom__level__cycle__section",
+    ).all()
+    serializer_class = EnrollmentSerializer
+
+
+@extend_schema(request=OpenApiTypes.OBJECT, responses={200: OpenApiTypes.OBJECT}, tags=["People"])
+@api_view(["GET"])
+@permission_classes([PeopleManagementPermission])
+def people_summary(request):
+    school = request.school
+
+    data = {
+        "students": school.students.count(),
+        "active_students": school.students.filter(
+            status=Student.Status.ACTIVE
+        ).count(),
+        "teachers": school.teachers.count(),
+        "active_teachers": school.teachers.filter(
+            status=Teacher.Status.ACTIVE
+        ).count(),
+        "guardians": school.guardians.filter(is_active=True).count(),
+        "enrollments": school.enrollments.count(),
+    }
+
+    return Response(PeopleSummarySerializer(data).data)

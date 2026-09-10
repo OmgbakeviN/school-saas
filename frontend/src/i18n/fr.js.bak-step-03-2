@@ -1,0 +1,310 @@
+const fr = {
+  common: {
+    active: "actif",
+    delete: "Supprimer",
+    cancel: "Annuler",
+    back: "Retour", continue: "Continuer", save: "Enregistrer", loading: "Chargement…",
+    optional: "facultatif", choose: "Choisir…", logout: "Déconnexion",
+    french: "Français", english: "Anglais"
+  },
+  brand: { name: "BE WISE School", subtitle: "Gestion scolaire SaaS" },
+  auth: {
+    title: "Connexion établissement",
+    subtitle: "Utilisez un compte membre de cet établissement.",
+    email: "E-mail", password: "Mot de passe", login: "Se connecter", logging: "Connexion…",
+    expired: "Votre session a expiré. Reconnectez-vous pour continuer."
+  },
+  nav: {
+    dashboard: "Tableau de bord", academics: "Structure académique", people: "Personnes & inscriptions",
+    school: "Établissement", team: "Équipe & accès"
+  },
+  dashboard: {
+    years: "Années scolaires", classes: "Classes", students: "Élèves", teachers: "Enseignants",
+    foundation: "Fondation active", next: "Prochaine grande étape", academics: "Structure académique",
+    configuration: "Configuration", language: "Langue", cycles: "Cycles", activeTeam: "Équipe active",
+    members: "{count} membre(s)"
+  },
+  academics: {
+    step: "Étape 2.1", title: "Structure académique",
+    description: "Configurez d'abord l'année, puis la hiérarchie Section → Cycle → Niveau. Les classes sont créées pour une année scolaire précise.",
+    generate: "Générer une structure suggérée", loading: "Chargement de la structure académique…",
+    tabs: { years: "Années scolaires", structure: "Sections & niveaux", classes: "Classes" },
+    year: {
+      new: "Nouvelle année scolaire", name: "Nom", example: "ex. 2026/2027", start: "Début", end: "Fin",
+      system: "Découpage principal", trimesters: "Trimestres", semesters: "Semestres", custom: "Personnalisé",
+      active: "Définir comme année active", create: "Créer l'année", configured: "Années configurées",
+      empty: "Aucune année scolaire configurée."
+    },
+    structure: {
+      addSection: "Ajouter une section", addCycle: "Ajouter un cycle", addLevel: "Ajouter un niveau",
+      name: "Nom", code: "Code", language: "Langue", section: "Section", cycle: "Cycle", type: "Type",
+      french: "Francophone", english: "Anglophone", bilingual: "Bilingue",
+      primary: "Primaire", secondary: "Secondaire", other: "Autre",
+      hierarchy: "Hiérarchie de l'établissement",
+      empty: "Aucune structure. Utilisez la génération suggérée ou créez vos éléments manuellement.",
+      noCycle: "Aucun cycle."
+    },
+    classroom: {
+      createTitle: "Créer une classe", help: "Une classe appartient à une année scolaire. Exemple : 3e A en 2026/2027.",
+      year: "Année scolaire", level: "Niveau", name: "Nom", code: "Code", capacity: "Capacité",
+      create: "Créer la classe", configured: "Classes configurées", activeYear: "Année active : {name}",
+      noActiveYear: "Aucune année active", count: "{count} classe(s)", empty: "Aucune classe créée."
+    },
+    errors: {
+      load: "Impossible de charger la structure académique.", save: "Impossible d'enregistrer.",
+      remove: "Impossible de supprimer cet élément.", generate: "Impossible de générer la structure."
+    }
+  },
+  settings: {
+    readOnly: "Votre rôle permet de consulter ces informations mais pas de les modifier.",
+    identityTitle: "Identité de l'établissement", identityText: "Logo, nom, devise et coordonnées.",
+    logo: "Logo", logoHint: "PNG/JPG, 3 Mo max", name: "Nom", acronym: "Sigle", motto: "Devise",
+    mottoPlaceholder: "Travail • Discipline • Réussite", city: "Ville", country: "Pays", phone: "Téléphone", email: "E-mail",
+    brandingTitle: "Branding & modèle scolaire", brandingText: "Ces valeurs seront réutilisées dans les futurs bulletins et portails.",
+    primaryColor: "Couleur principale", secondaryColor: "Couleur secondaire", language: "Langue", cycles: "Cycles",
+    teachingModel: "Modèle d'enseignement", french: "Francophone", english: "Anglophone", bilingual: "Bilingue",
+    primary: "Primaire", secondary: "Secondaire", both: "Primaire + secondaire", classTeacher: "Titulaire de classe",
+    subjectTeacher: "Enseignants par matière", hybrid: "Hybride", saved: "Modifications enregistrées.",
+    saveError: "Impossible d'enregistrer les modifications."
+  },
+  members: {
+    title: "Équipe & accès", subtitle: "Les profils pédagogiques détaillés seront ajoutés à l'étape 3.",
+    add: "Ajouter un membre", firstName: "Prénom", lastName: "Nom", email: "E-mail", initialPassword: "Mot de passe initial",
+    role: "Rôle", create: "Créer le compte", loading: "Chargement…", owner: "Propriétaire", director: "Directeur",
+    manager: "Gestionnaire", teacher: "Enseignant", accountant: "Comptable", remove: "Retirer",
+    removeConfirm: "Retirer {name} de l'établissement ?", loadError: "Impossible de charger les membres.",
+    createError: "Impossible d'ajouter ce membre."
+  }
+,
+  landing: {
+    create: "Créer un établissement", badge: "Fondation SaaS — Étape 1",
+    title: "Le système scolaire configurable pour chaque établissement.",
+    description: "Francophone, anglophone ou bilingue. Primaire, secondaire ou les deux. La plateforme s'adapte à chaque établissement.",
+    start: "Démarrer l'installation", example: "Exemple", bilingual: "Bilingue", both: "Primaire + secondaire",
+    hybrid: "Modèle hybride", isolated: "Tenant isolé",
+    portalTitle: "Un portail par établissement", portalText: "Chaque école dispose de son espace et de son sous-domaine.",
+    levelsTitle: "Primaire et secondaire", levelsText: "La structure s'adapte au modèle académique de l'établissement.",
+    tenantTitle: "Architecture multi-tenant", tenantText: "Les données restent isolées dans leur établissement."
+  },
+  onboarding: {
+    installation: "Installation", schoolStep: "Établissement", modelStep: "Modèle scolaire", adminStep: "Administrateur", doneStep: "Terminé",
+    schoolTitle: "Votre établissement", schoolText: "Commençons par son identité et son adresse.", schoolName: "Nom de l'établissement",
+    acronym: "Sigle", city: "Ville", portal: "Adresse du portail", phone: "Téléphone", schoolEmail: "E-mail établissement",
+    modelTitle: "Modèle scolaire", modelText: "Ces choix servent de base à la configuration académique future.", languageSection: "Langue / section",
+    coveredCycles: "Cycles couverts", teachingModel: "Modèle d'enseignement", french: "Francophone", english: "Anglophone", bilingual: "Bilingue",
+    primary: "Primaire", secondary: "Secondaire", both: "Primaire + secondaire", classTeacher: "Titulaire de classe",
+    subjectTeachers: "Enseignants par matière", hybrid: "Hybride", adminTitle: "Compte administrateur",
+    adminText: "Ce compte sera propriétaire du nouvel espace.", firstName: "Prénom", lastName: "Nom", email: "E-mail", password: "Mot de passe",
+    passwordHint: "8 caractères minimum", create: "Créer l'établissement", doneTitle: "Votre portail est prêt.",
+    doneText: "a été créé. Une seule adresse est utilisée : elle s'adapte automatiquement au domaine sur lequel l'application est installée.",
+    yourPortal: "Votre portail", openPortal: "Ouvrir le portail", genericError: "Une erreur est survenue.", serverError: "Impossible de contacter le serveur Django."
+  }
+,
+academicWorkspace: {
+  structure: "Structure",
+  curriculum: "Programme & notation",
+},
+curriculum: {
+  step: "Étape 2.2",
+  title: "Programme, périodes & règles de notation",
+  description: "Configurez les trimestres ou semestres, les matières enseignées par niveau, les coefficients et les règles de passage. Les séquences et examens seront créés plus tard à l'intérieur de ces périodes.",
+  loading: "Chargement du programme académique…",
+  syncing: "Synchronisation…",
+  tabs: { periods: "Périodes", subjects: "Matières & coefficients", rules: "Notation & passage" },
+  periods: {
+    create: "Configurer les périodes", help: "Une période est un trimestre, un semestre ou une période personnalisée. Les séquences/examens viendront ensuite à l'intérieur.",
+    year: "Année scolaire", generate: "Générer selon l'année", manual: "Ou créer manuellement", name: "Nom", code: "Code", type: "Type",
+    trimester: "Trimestre", semester: "Semestre", custom: "Personnalisé", weight: "Poids annuel", weightShort: "poids",
+    start: "Début", end: "Fin", add: "Ajouter la période", configured: "Périodes configurées", empty: "Aucune période configurée."
+  },
+  subjects: {
+    catalogTitle: "Catalogue des matières", catalogHelp: "Créez une matière une seule fois, puis affectez-la aux niveaux qui l'enseignent.",
+    name: "Nom de la matière", code: "Code", category: "Catégorie", defaultLanguage: "Langue par défaut", add: "Ajouter la matière",
+    assignTitle: "Affecter une matière à plusieurs niveaux", assignHelp: "Le coefficient appartient au programme du niveau, pas à la classe annuelle.",
+    level: "Niveau", subject: "Matière", coefficient: "Coefficient", coefficientShort: "Coeff.", maxScore: "Note maximale",
+    language: "Langue d'enseignement", assign: "Affecter aux niveaux", programTitle: "Programme par niveau",
+    programHelp: "Ces matières seront ensuite disponibles pour les affectations pédagogiques et les notes.",
+    emptyAssignments: "Aucune matière n'est encore affectée à un niveau.", catalogConfigured: "Matières disponibles", emptyCatalog: "Aucune matière dans le catalogue.",
+    levels: "Niveaux concernés",
+    levelSelectionHelp: "Cochez tous les niveaux auxquels cette matière doit être affectée.",
+    selectedCount: "{count} sélectionné(s)",
+    selectAll: "Tout sélectionner",
+    clearSelection: "Effacer",
+    alreadyAssigned: "déjà affectée",
+    noLevels: "Aucun niveau disponible.",
+    selectAtLeastOneLevel: "Sélectionnez au moins un niveau.",
+    bulkAssigned: "{created} affectation(s) créée(s), {updated} mise(s) à jour.",
+    editTitle: "Modifier la matière",
+    editHelp: "Modifiez le nom, le code, la catégorie ou la langue par défaut.",
+    activeSubject: "Matière active",
+    editAssignmentTitle: "Modifier l'affectation",
+    editAssignmentHelp: "Modifiez le coefficient, la note maximale ou la langue pour ce niveau.",
+    activeAssignment: "Affectation active"
+  },
+  languages: { section: "Langue de la section", bilingual: "Bilingue" },
+  rules: {
+    schoolTitle: "Règle par défaut de l'établissement",
+    schoolHelp: "Exemple : une école peut noter sur 20 avec un seuil de passage à 10/20, tandis qu'une autre peut choisir 12/20. Les cycles ou niveaux peuvent remplacer cette règle.",
+    maxScore: "Note maximale par défaut", promotionThreshold: "Moyenne minimale de passage", saved: "Règle de notation enregistrée.",
+    cycleTitle: "Exceptions par cycle", cycleHelp: "Laissez vide pour hériter de l'établissement.",
+    levelTitle: "Exceptions par niveau", levelHelp: "Laissez un champ vide pour hériter de la règle du cycle ou de l'établissement. La décision finale de promotion restera validée par la direction.",
+    cycleThreshold: "Seuil du cycle", cycleMaxScore: "Note maximale", levelThreshold: "Seuil du niveau", levelMaxScore: "Note maximale",
+    inherit: "vide = hériter", effective: "Règle effective", noCycles: "Créez d'abord les cycles.", noLevels: "Créez d'abord les niveaux."
+  },
+  errors: {
+    load: "Impossible de charger le programme académique.", save: "Impossible d'enregistrer.", assign: "Impossible d'affecter cette matière.",
+    delete: "Impossible de supprimer cet élément.", generatePeriods: "Impossible de générer les périodes."
+  }
+},
+people: {
+  step: "Étape 3.1",
+  title: "Personnes & inscriptions",
+  description:
+    "Gérez les élèves, les enseignants, les parents/tuteurs et l'inscription annuelle des élèves dans leurs classes. Les données restent liées au même profil d'une année à l'autre.",
+  loading: "Chargement des personnes…",
+  syncing: "Synchronisation…",
+  search: "Rechercher…",
+  tabs: {
+    students: "Élèves",
+    teachers: "Enseignants",
+    guardians: "Parents / tuteurs",
+    enrollments: "Inscriptions",
+  },
+  summary: {
+    students: "Élèves actifs",
+    teachers: "Enseignants actifs",
+    guardians: "Parents / tuteurs",
+    enrollments: "Inscriptions",
+  },
+  fields: {
+    firstName: "Prénom",
+    lastName: "Nom",
+    phone: "Téléphone",
+    email: "E-mail",
+    address: "Adresse",
+    notes: "Notes",
+  },
+  gender: {
+    male: "Masculin",
+    female: "Féminin",
+    other: "Autre",
+  },
+  status: {
+    active: "Actif",
+    inactive: "Inactif",
+    graduated: "Diplômé",
+    transferred: "Transféré",
+    withdrawn: "Retiré",
+  },
+  students: {
+    title: "Élèves",
+    help: "Une fiche élève reste unique. Les classes et années sont conservées via les inscriptions.",
+    add: "Ajouter un élève",
+    empty: "Aucun élève enregistré.",
+    createTitle: "Nouvel élève",
+    editTitle: "Modifier l'élève",
+    dialogHelp: "Créez l'identité permanente de l'élève. L'inscription en classe se fait séparément.",
+    matricule: "Matricule",
+    autoCode: "laisser vide = génération automatique",
+    status: "Statut",
+    gender: "Sexe",
+    birthDate: "Date de naissance",
+    birthPlace: "Lieu de naissance",
+    nationality: "Nationalité",
+    admissionDate: "Date d'admission",
+    notEnrolled: "pas encore inscrit pour l'année active",
+  },
+  teachers: {
+    title: "Enseignants",
+    help: "Ces profils seront utilisés à l'étape suivante pour les affectations pédagogiques.",
+    add: "Ajouter un enseignant",
+    empty: "Aucun enseignant enregistré.",
+    createTitle: "Nouvel enseignant",
+    editTitle: "Modifier l'enseignant",
+    dialogHelp: "Le profil enseignant est distinct du compte de connexion. Le lien avec un compte peut être ajouté ensuite.",
+    employeeNumber: "Matricule enseignant",
+    speciality: "Spécialité",
+    hireDate: "Date d'embauche",
+    status: "Statut",
+  },
+  guardians: {
+    title: "Parents & tuteurs",
+    help: "Le téléphone sera essentiel plus tard pour identifier le parent via WhatsApp.",
+    add: "Ajouter un parent / tuteur",
+    empty: "Aucun parent ou tuteur enregistré.",
+    createTitle: "Nouveau parent / tuteur",
+    editTitle: "Modifier le parent / tuteur",
+    dialogHelp: "Enregistrez les coordonnées du responsable puis liez-le à un ou plusieurs élèves.",
+    alternatePhone: "Téléphone secondaire",
+    occupation: "Profession",
+    preferredLanguage: "Langue préférée",
+    active: "Parent / tuteur actif",
+    children: "enfant(s)",
+    link: "Lier à un élève",
+    linkTitle: "Lier un parent à un élève",
+    linkHelp: "Créer un lien entre {name} et un élève de l'établissement.",
+    student: "Élève",
+    relationship: "Lien familial",
+    primaryContact: "Contact principal pour cet élève",
+    notifications: "Recevoir les notifications",
+    resultsPermission: "Autorisé à recevoir les résultats",
+    linksTitle: "Liens parent ↔ élève",
+    noLinks: "Aucun lien parent-élève configuré.",
+    primaryShort: "contact principal",
+  },
+  relationship: {
+    father: "Père",
+    mother: "Mère",
+    guardian: "Tuteur / tutrice",
+    sibling: "Frère / sœur",
+    other: "Autre",
+  },
+  enrollments: {
+    title: "Inscriptions annuelles",
+    help:
+      "Une inscription relie un élève à une classe pour une année scolaire. C'est ce modèle qui conservera tout l'historique.",
+    add: "Inscrire un élève",
+    empty: "Aucune inscription enregistrée.",
+    createTitle: "Nouvelle inscription",
+    editTitle: "Modifier l'inscription",
+    dialogHelp:
+      "Un élève ne peut avoir qu'une seule inscription par année scolaire. La classe doit appartenir à l'année choisie.",
+    student: "Élève",
+    year: "Année scolaire",
+    classroom: "Classe",
+    date: "Date d'inscription",
+    rollNumber: "Numéro dans la classe",
+    status: "Statut de l'inscription",
+    decision: "Décision de fin d'année",
+    finalAverage: "Moyenne annuelle",
+    futureCalculated: "sera calculée automatiquement à l'étape résultats",
+    reason: "Motif / commentaire de décision",
+    averageShort: "Moy.",
+  },
+  enrollmentStatus: {
+    active: "Inscrit",
+    completed: "Année terminée",
+    transferred: "Transféré",
+    withdrawn: "Retiré",
+  },
+  promotion: {
+    pending: "En attente",
+    promoted: "Admis / promu",
+    repeated: "Redouble",
+    graduated: "Diplômé",
+    transferred: "Transféré",
+    withdrawn: "Retiré",
+  },
+  errors: {
+    load: "Impossible de charger les personnes et inscriptions.",
+    delete: "Impossible de supprimer cet élément.",
+    saveStudent: "Impossible d'enregistrer l'élève.",
+    saveTeacher: "Impossible d'enregistrer l'enseignant.",
+    saveGuardian: "Impossible d'enregistrer le parent/tuteur.",
+    linkGuardian: "Impossible de créer ce lien.",
+    saveEnrollment: "Impossible d'enregistrer l'inscription.",
+  },
+}
+};
+
+export default fr;

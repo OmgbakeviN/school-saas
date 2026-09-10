@@ -1,0 +1,80 @@
+from django.urls import path
+
+from .views import (
+    AssignPlanView,
+    FinanceDashboardView,
+    FinanceOptionsView,
+    PaymentListView,
+    PaymentReceiptView,
+    PlanInstallmentListCreateView,
+    RecordPaymentView,
+    TuitionAccountDetailView,
+    TuitionAccountListView,
+    TuitionInstallmentDetailView,
+    TuitionPlanDetailView,
+    TuitionPlanListCreateView,
+)
+
+
+urlpatterns = [
+    path(
+        "options/",
+        FinanceOptionsView.as_view(),
+        name="finance-options",
+    ),
+    path(
+        "dashboard/",
+        FinanceDashboardView.as_view(),
+        name="finance-dashboard",
+    ),
+    path(
+        "plans/",
+        TuitionPlanListCreateView.as_view(),
+        name="tuition-plan-list",
+    ),
+    path(
+        "plans/<int:pk>/",
+        TuitionPlanDetailView.as_view(),
+        name="tuition-plan-detail",
+    ),
+    path(
+        "plans/<int:plan_id>/installments/",
+        PlanInstallmentListCreateView.as_view(),
+        name="tuition-installment-list",
+    ),
+    path(
+        "installments/<int:pk>/",
+        TuitionInstallmentDetailView.as_view(),
+        name="tuition-installment-detail",
+    ),
+    path(
+        "plans/<int:plan_id>/assign/",
+        AssignPlanView.as_view(),
+        name="tuition-plan-assign",
+    ),
+    path(
+        "accounts/",
+        TuitionAccountListView.as_view(),
+        name="tuition-account-list",
+    ),
+    path(
+        "accounts/<int:account_id>/",
+        TuitionAccountDetailView.as_view(),
+        name="tuition-account-detail",
+    ),
+    path(
+        "payments/",
+        PaymentListView.as_view(),
+        name="tuition-payment-list",
+    ),
+    path(
+        "payments/record/",
+        RecordPaymentView.as_view(),
+        name="tuition-payment-record",
+    ),
+    path(
+        "payments/<int:payment_id>/receipt/",
+        PaymentReceiptView.as_view(),
+        name="tuition-payment-receipt",
+    ),
+]
