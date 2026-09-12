@@ -1,7 +1,577 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#0f172a;background:#f8fafc}
-*{box-sizing:border-box}
-body{margin:0;min-width:320px;min-height:100vh}
-.gradient-grid{background-image:radial-gradient(circle at 15% 20%,rgba(59,130,246,.12),transparent 28%),radial-gradient(circle at 85% 10%,rgba(168,85,247,.12),transparent 30%),radial-gradient(circle at 60% 80%,rgba(16,185,129,.10),transparent 32%)}
+
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: #f8fafc;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+.gradient-grid {
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(59, 130, 246, 0.12), transparent 28%),
+    radial-gradient(circle at 85% 10%, rgba(168, 85, 247, 0.12), transparent 30%),
+    radial-gradient(circle at 60% 80%, rgba(16, 185, 129, 0.1), transparent 32%);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tenant branding                                                            */
+/* -------------------------------------------------------------------------- */
+
+.tenant-theme {
+  --school-primary: #144dd2;
+  --school-primary-rgb: 20 77 210;
+  --school-secondary: #0a0a0b;
+  --school-secondary-rgb: 10 10 11;
+  --school-on-primary: #ffffff;
+  --school-on-secondary: #ffffff;
+}
+
+.tenant-theme .tenant-brand-strip {
+  background: linear-gradient(
+    90deg,
+    var(--school-primary),
+    var(--school-secondary)
+  );
+}
+
+.tenant-theme .tenant-primary-bg {
+  background-color: var(--school-primary) !important;
+  color: var(--school-on-primary) !important;
+}
+
+.tenant-theme .tenant-primary-text {
+  color: var(--school-primary) !important;
+}
+
+.tenant-theme .tenant-primary-soft {
+  background-color: rgb(var(--school-primary-rgb) / 0.08) !important;
+}
+
+.tenant-theme .tenant-primary-border {
+  border-color: rgb(var(--school-primary-rgb) / 0.26) !important;
+}
+
+/* Existing modules already use bg-slate-950 for primary actions. Re-map those
+   actions only inside a tenant so the whole interface follows the school's
+   chosen primary colour without rewriting every module. */
+.tenant-theme .bg-slate-950 {
+  background-color: var(--school-primary) !important;
+}
+
+.tenant-theme .bg-slate-950.text-white,
+.tenant-theme .bg-slate-950 .text-white {
+  color: var(--school-on-primary) !important;
+}
+
+.tenant-theme .text-blue-700,
+.tenant-theme .text-blue-600 {
+  color: var(--school-primary) !important;
+}
+
+.tenant-theme .bg-blue-50 {
+  background-color: rgb(var(--school-primary-rgb) / 0.08) !important;
+}
+
+.tenant-theme .border-blue-200,
+.tenant-theme .border-blue-100 {
+  border-color: rgb(var(--school-primary-rgb) / 0.24) !important;
+}
+
+.tenant-theme input:focus,
+.tenant-theme select:focus,
+.tenant-theme textarea:focus {
+  border-color: var(--school-primary) !important;
+  box-shadow: 0 0 0 4px rgb(var(--school-primary-rgb) / 0.12) !important;
+  outline: none !important;
+}
+
+.tenant-theme ::selection {
+  background: rgb(var(--school-primary-rgb) / 0.2);
+}
+
+.tenant-theme .tenant-scrollbar {
+  scrollbar-color: rgb(var(--school-primary-rgb) / 0.45) transparent;
+  scrollbar-width: thin;
+}
+
+.tenant-theme .tenant-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tenant-theme .tenant-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(var(--school-primary-rgb) / 0.38);
+  border-radius: 999px;
+}
+
+.tenant-theme .tenant-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Better touch/mobile behaviour for every existing module. */
+.tenant-theme .overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 640px) {
+  .tenant-theme input,
+  .tenant-theme select,
+  .tenant-theme textarea {
+    /* Prevents iOS from zooming the viewport when focusing form controls. */
+    font-size: 16px;
+  }
+
+  .tenant-theme .rounded-3xl {
+    border-radius: 1rem;
+  }
+
+  .tenant-theme table {
+    font-size: 0.8125rem;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* UI 07.3 — immersive tenant colour system                                   */
+/* -------------------------------------------------------------------------- */
+
+.tenant-theme {
+  --school-gradient: linear-gradient(
+    135deg,
+    var(--school-primary) 0%,
+    color-mix(in srgb, var(--school-primary) 72%, var(--school-secondary)) 62%,
+    var(--school-secondary) 135%
+  );
+  --school-gradient-soft: linear-gradient(
+    145deg,
+    rgb(var(--school-primary-rgb) / 0.10),
+    rgb(var(--school-primary-rgb) / 0.025) 46%,
+    rgb(var(--school-secondary-rgb) / 0.065)
+  );
+  --school-shadow: 0 18px 48px rgb(var(--school-primary-rgb) / 0.10);
+  --school-shadow-strong: 0 18px 40px rgb(var(--school-primary-rgb) / 0.22);
+}
+
+.tenant-app-shell,
+.tenant-login-shell {
+  background-image:
+    radial-gradient(
+      circle at 3% 3%,
+      rgb(var(--school-primary-rgb) / 0.15),
+      transparent 31rem
+    ),
+    radial-gradient(
+      circle at 95% 18%,
+      rgb(var(--school-secondary-rgb) / 0.09),
+      transparent 27rem
+    ),
+    radial-gradient(
+      circle at 60% 92%,
+      rgb(var(--school-primary-rgb) / 0.06),
+      transparent 32rem
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, #ffffff 94%, var(--school-primary)) 0%,
+      #f8fafc 36%,
+      color-mix(in srgb, #f8fafc 96%, var(--school-secondary)) 100%
+    );
+  background-attachment: fixed;
+}
+
+.tenant-login-shell::before,
+.tenant-app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    linear-gradient(rgb(var(--school-primary-rgb) / 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--school-primary-rgb) / 0.025) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, black, transparent 68%);
+  z-index: 0;
+}
+
+/*
+ * Keep the decorative background behind the UI without rewriting the
+ * positioning mode of application children.
+ *
+ * IMPORTANT:
+ * The previous `position: relative` rule overrode Tailwind classes such as
+ * `fixed` and `sticky`, which collapsed the mobile drawer into the page flow.
+ */
+.tenant-app-shell > :not(.fixed):not(.sticky),
+.tenant-login-shell > :not(.fixed):not(.sticky) {
+  position: relative;
+}
+
+.tenant-theme .tenant-brand-strip,
+.tenant-theme .tenant-primary-bg,
+.tenant-theme .bg-slate-950 {
+  background-color: var(--school-primary) !important;
+  background-image: var(--school-gradient) !important;
+}
+
+.tenant-theme .tenant-primary-bg,
+.tenant-theme button.bg-slate-950,
+.tenant-theme a.bg-slate-950 {
+  box-shadow: 0 8px 22px rgb(var(--school-primary-rgb) / 0.18);
+}
+
+.tenant-theme button.bg-slate-950,
+.tenant-theme a.bg-slate-950,
+.tenant-theme .tenant-primary-bg {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+}
+
+.tenant-theme button.bg-slate-950:hover:not(:disabled),
+.tenant-theme a.bg-slate-950:hover,
+.tenant-theme .tenant-primary-bg:hover {
+  filter: saturate(1.08) brightness(1.025);
+  box-shadow: var(--school-shadow-strong);
+}
+
+.tenant-theme button.bg-slate-950:active:not(:disabled),
+.tenant-theme .tenant-primary-bg:active {
+  transform: translateY(1px) scale(0.995);
+}
+
+.tenant-theme .tenant-primary-soft {
+  background-color: rgb(var(--school-primary-rgb) / 0.07) !important;
+  background-image: linear-gradient(
+    135deg,
+    rgb(var(--school-primary-rgb) / 0.13),
+    rgb(var(--school-primary-rgb) / 0.04) 64%,
+    rgb(var(--school-secondary-rgb) / 0.045)
+  ) !important;
+}
+
+.tenant-header {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, #ffffff 94%, var(--school-primary)),
+    rgb(255 255 255 / 0.94) 46%,
+    color-mix(in srgb, #ffffff 96%, var(--school-secondary))
+  );
+  box-shadow: 0 7px 28px rgb(var(--school-primary-rgb) / 0.055);
+}
+
+.tenant-nav-shell,
+.tenant-mobile-drawer,
+.tenant-login-card {
+  background-image: linear-gradient(
+    155deg,
+    rgb(255 255 255 / 0.98),
+    color-mix(in srgb, #ffffff 96%, var(--school-primary)) 58%,
+    color-mix(in srgb, #ffffff 97%, var(--school-secondary))
+  );
+  border-color: rgb(var(--school-primary-rgb) / 0.12) !important;
+}
+
+.tenant-nav-shell {
+  box-shadow:
+    0 14px 36px rgb(var(--school-primary-rgb) / 0.07),
+    inset 0 1px 0 rgb(255 255 255 / 0.85);
+}
+
+.tenant-nav-active {
+  position: relative;
+  overflow: hidden;
+}
+
+.tenant-nav-active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 12%,
+    rgb(255 255 255 / 0.15) 43%,
+    transparent 68%
+  );
+  transform: translateX(-120%);
+  animation: tenant-nav-shimmer 4.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.tenant-card,
+.tenant-theme .rounded-3xl.border.border-slate-200.bg-white,
+.tenant-theme .rounded-2xl.border.border-slate-200.bg-white {
+  border-color: rgb(var(--school-primary-rgb) / 0.10) !important;
+  background-image: linear-gradient(
+    150deg,
+    rgb(255 255 255 / 0.99),
+    rgb(var(--school-primary-rgb) / 0.023) 64%,
+    rgb(var(--school-secondary-rgb) / 0.018)
+  );
+  box-shadow:
+    0 10px 30px rgb(15 23 42 / 0.035),
+    0 1px 0 rgb(255 255 255 / 0.9) inset;
+}
+
+.tenant-card {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+@media (hover: hover) {
+  .tenant-card:hover {
+    transform: translateY(-2px);
+    border-color: rgb(var(--school-primary-rgb) / 0.19) !important;
+    box-shadow: var(--school-shadow);
+  }
+}
+
+.tenant-hero-badge {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.6);
+}
+
+.tenant-theme .bg-blue-50 {
+  background-color: rgb(var(--school-primary-rgb) / 0.07) !important;
+  background-image: linear-gradient(
+    135deg,
+    rgb(var(--school-primary-rgb) / 0.11),
+    rgb(var(--school-primary-rgb) / 0.035)
+  ) !important;
+}
+
+.tenant-theme input,
+.tenant-theme select,
+.tenant-theme textarea {
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.tenant-theme input:hover:not(:disabled),
+.tenant-theme select:hover:not(:disabled),
+.tenant-theme textarea:hover:not(:disabled) {
+  border-color: rgb(var(--school-primary-rgb) / 0.23);
+}
+
+.tenant-theme input:focus,
+.tenant-theme select:focus,
+.tenant-theme textarea:focus {
+  background-color: color-mix(in srgb, #ffffff 98%, var(--school-primary));
+}
+
+.tenant-theme table thead {
+  background-image: linear-gradient(
+    90deg,
+    rgb(var(--school-primary-rgb) / 0.035),
+    transparent 72%
+  );
+}
+
+.tenant-theme table tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.tenant-theme table tbody tr:hover {
+  background-color: rgb(var(--school-primary-rgb) / 0.025);
+}
+
+@keyframes tenant-nav-shimmer {
+  0%, 68% {
+    transform: translateX(-120%);
+  }
+  82%, 100% {
+    transform: translateX(120%);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Floating notifications                                                     */
+/* -------------------------------------------------------------------------- */
+
+.toast-card {
+  animation: toast-enter 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.toast-card .toast-icon {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.toast-success {
+  border-color: #bbf7d0;
+}
+
+.toast-success .toast-icon {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.toast-success .toast-progress {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.toast-error {
+  border-color: #fecdd3;
+}
+
+.toast-error .toast-icon {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.toast-error .toast-progress {
+  background: linear-gradient(90deg, #f43f5e, #fb7185);
+}
+
+.toast-warning {
+  border-color: #fde68a;
+}
+
+.toast-warning .toast-icon {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.toast-warning .toast-progress {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.toast-info {
+  border-color: rgb(var(--school-primary-rgb, 20 77 210) / 0.20);
+}
+
+.toast-info .toast-icon {
+  background: rgb(var(--school-primary-rgb, 20 77 210) / 0.08);
+  color: var(--school-primary, #144dd2);
+}
+
+.toast-info .toast-progress {
+  background: linear-gradient(
+    90deg,
+    var(--school-primary, #144dd2),
+    var(--school-secondary, #0a0a0b)
+  );
+}
+
+.toast-progress {
+  animation: toast-progress 4.2s linear forwards;
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .tenant-app-shell,
+  .tenant-login-shell {
+    background-image:
+      radial-gradient(
+        circle at 10% 0%,
+        rgb(var(--school-primary-rgb) / 0.13),
+        transparent 22rem
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, #ffffff 95%, var(--school-primary)),
+        #f8fafc 42%
+      );
+  }
+
+  .tenant-card:hover {
+    transform: none;
+  }
+
+  .toast-card {
+    max-width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tenant-nav-active::after,
+  .toast-card,
+  .toast-progress {
+    animation: none !important;
+  }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* HOTFIX 07.3.1 — mobile navigation overlay                                  */
+/* -------------------------------------------------------------------------- */
+
+.tenant-app-shell > .tenant-mobile-nav-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 70 !important;
+}
+
+.tenant-mobile-drawer {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+@supports not (height: 100dvh) {
+  .tenant-mobile-drawer {
+    height: 100vh;
+    max-height: 100vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .tenant-mobile-drawer {
+    width: min(88vw, 320px);
+  }
+}

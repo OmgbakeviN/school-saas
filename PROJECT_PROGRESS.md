@@ -290,3 +290,68 @@ Aucune migration.
 - [x] aucun hard refresh ajouté
 
 Aucune migration.
+
+---
+
+## UI 07.2 — Thème établissement & responsive mobile
+
+- [x] thème dynamique basé sur `School.primary_color`
+- [x] couleur secondaire utilisée dans la signature visuelle du portail
+- [x] boutons principaux recolorés automatiquement dans tous les modules tenant
+- [x] états focus des formulaires recolorés selon l'établissement
+- [x] écran de connexion tenant brandé avant authentification
+- [x] logo établissement avec fallback propre si l'image ne charge pas
+- [x] logo affiché en `object-contain` pour éviter le recadrage
+- [x] menu mobile en drawer avec overlay
+- [x] navigation desktop conservée en sidebar sticky
+- [x] menu mobile scrollable pour les rôles ayant beaucoup de modules
+- [x] blocage du scroll arrière-plan lorsque le drawer est ouvert
+- [x] fermeture du menu avec `Escape`
+- [x] header sticky mobile/desktop
+- [x] espacements dashboard adaptés aux petits écrans
+- [x] cartes dashboard en grille compacte mobile
+- [x] tables existantes conservent le scroll horizontal tactile
+- [x] champs de formulaire à 16px sur mobile pour éviter le zoom iOS
+- [x] aucun hard refresh ajouté aux changements de section
+- [x] changement de couleur depuis Établissement appliqué immédiatement après sauvegarde
+
+Aucune migration et aucun changement backend.
+
+---
+
+## UI 07.3 — Thème immersif & notifications flottantes
+
+- [x] gradients dynamiques primary / secondary
+- [x] fond tenant immersif
+- [x] header teinté selon l'établissement
+- [x] navigation latérale intégrée au thème
+- [x] boutons principaux en gradient
+- [x] cartes avec accents de couleur dynamiques
+- [x] focus formulaires selon la couleur de l'école
+- [x] thème appliqué aussi aux notifications globales
+- [x] notifications flottantes succès
+- [x] notifications flottantes erreur
+- [x] notifications info / warning disponibles pour les futurs modules
+- [x] conversion automatique des anciens retours de formulaire inline
+- [x] badges de statut exclus de la conversion
+- [x] responsive mobile des notifications
+- [x] `prefers-reduced-motion`
+- [x] documentation mise à jour
+
+Aucune migration et aucun changement backend.
+
+
+---
+
+## HOTFIX 07.3.1 — Menu hamburger mobile
+
+- [x] correction du drawer qui tombait dans le flux de la page
+- [x] restauration du positionnement `fixed` de l'overlay mobile
+- [x] restauration du comportement `sticky` du header
+- [x] drawer plein écran avec `100dvh`
+- [x] backdrop couvrant toute la fenêtre
+- [x] navigation scrollable indépendamment du contenu
+- [x] identité école compacte dans le drawer
+- [x] fallback `100vh` pour navigateurs sans support `dvh`
+
+Aucune migration et aucun changement backend.

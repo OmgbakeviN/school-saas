@@ -4,6 +4,7 @@ import api from "../services/api";
 import LandingPage from "../modules/onboarding/LandingPage";
 import CreateSchoolPage from "../modules/onboarding/CreateSchoolPage";
 import TenantPortal from "../modules/tenant/TenantPortal";
+import FloatingNotifications from "../components/FloatingNotifications";
 
 export default function App() {
   const [context, setContext] = useState(null);
@@ -37,14 +38,25 @@ export default function App() {
   }
 
   if (context?.school) {
-    return <TenantPortal tenantSlug={context.school.slug} />;
+    return (
+      <>
+        <FloatingNotifications />
+        <TenantPortal
+          tenantSlug={context.school.slug}
+          initialSchool={context.school}
+        />
+      </>
+    );
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/create-school" element={<CreateSchoolPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <FloatingNotifications />
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/create-school" element={<CreateSchoolPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }

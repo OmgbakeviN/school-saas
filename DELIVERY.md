@@ -1,28 +1,33 @@
-# HOTFIX 07.1 — Formulaire de paiement responsive
+# HOTFIX 07.3.1 — Menu hamburger mobile
 
-Extraire directement à la racine du projet en écrasant les fichiers.
+Ce correctif s'applique par-dessus UI 07.3.
 
-```text
-C:\Users\dell\school saas
-```
+## Problème corrigé
 
-Aucun changement backend et aucune migration.
+La règle immersive UI 07.3 appliquait `position: relative` à tous les
+enfants directs du portail. Elle écrasait donc les classes Tailwind
+`fixed` et `sticky`.
 
-Le modal de paiement utilise maintenant :
+Sur mobile, le menu hamburger était alors rendu dans le flux normal de la
+page au lieu d'être un drawer plein écran.
 
-```text
-hauteur max = viewport
-header fixe
-contenu scrollable
-footer fixe
-```
+## Correction
 
-Ainsi, même avec plusieurs tranches, les boutons de validation restent
-toujours accessibles.
+- overlay réellement `fixed`
+- backdrop plein écran
+- drawer `100dvh`
+- header du portail à nouveau sticky
+- contenu du drawer scrollable
+- identité école compacte
+- fallback `100vh`
 
-Redémarrer Vite si nécessaire :
+## Installation
+
+Extraire ce ZIP à la racine du projet en écrasant les fichiers.
 
 ```powershell
 cd frontend
 npm run dev
 ```
+
+Aucune migration.
