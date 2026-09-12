@@ -40,6 +40,8 @@ services:
     depends_on: [backend]
     ports:
       - "127.0.0.1:${APP_BIND_PORT:-8088}:80"
+    volumes:
+      - school_media:/app/media:ro
     networks: [school_internal]
 
 volumes:
