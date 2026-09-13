@@ -1,6 +1,7 @@
 const fr = {
   common: {
     active: "actif",
+    edit: "Modifier",
     delete: "Supprimer",
     cancel: "Annuler",
     back: "Retour", continue: "Continuer", save: "Enregistrer", loading: "Chargement…",
@@ -606,6 +607,7 @@ people: {
     tabs: {
       explorer: "Explorateur",
       published: "Bulletins publiés",
+      templates: "Modèles A4",
     },
     types: {
       period: "Bulletin de période",
@@ -644,6 +646,7 @@ people: {
     },
     publish: {
       student: "Publier ce bulletin",
+      preview: "Prévisualiser PDF A4",
       classroom: "Publier toute la classe",
       downloadZip: "Télécharger les bulletins ZIP",
       classConfirm:
@@ -671,6 +674,8 @@ people: {
       zipDownloaded:
         "ZIP téléchargé : {included} bulletin(s), {missing} élève(s) sans bulletin publié.",
       verificationCopied: "Lien de vérification copié.",
+      previewReady:
+        "Aperçu A4 généré sur {pages} page(s). Aucun bulletin officiel n'a été créé.",
     },
     errors: {
       load: "Impossible de charger le module bulletins.",
@@ -679,6 +684,94 @@ people: {
       publish: "Impossible de publier le bulletin.",
       pdf: "Impossible de télécharger le PDF.",
       zip: "Impossible de télécharger les bulletins de la classe.",
+      preview: "Impossible de générer l'aperçu A4.",
+    },
+
+    preview: {
+      title: "Prévisualisation du bulletin A4",
+      meta:
+        "{pages} page(s) • {template} • {orientation}",
+      download: "Télécharger",
+      newTab: "Ouvrir dans un nouvel onglet",
+      close: "Fermer la prévisualisation",
+      nonOfficial:
+        "Aperçu uniquement — aucun bulletin officiel n'est créé tant que vous ne cliquez pas sur Publier.",
+    },
+    templates: {
+      loading: "Chargement des modèles de bulletin…",
+      createTitle: "Créer un modèle de bulletin",
+      editTitle: "Modifier le modèle",
+      formHelp:
+        "Le modèle est figé dans chaque bulletin publié. Une modification future n'altère donc pas les anciens PDF.",
+      new: "Nouveau modèle",
+      defaultName: "Modèle principal",
+      allCycles: "Tous les cycles",
+      fields: {
+        name: "Nom du modèle",
+        scope: "Cycle concerné",
+        fontScale: "Échelle de police",
+        layout: "Mise en page",
+        default: "Modèle par défaut",
+      },
+      defaultHelp:
+        "Le modèle par défaut du cycle est utilisé en priorité, sinon le modèle général de l'établissement.",
+      defaultBadge: "Par défaut",
+      setDefault: "Définir par défaut",
+      listTitle: "Modèles configurés",
+      listHelp:
+        "Vous pouvez utiliser un modèle général pour l'école et des modèles spécifiques par cycle.",
+      empty:
+        "Aucun modèle enregistré. Sans configuration, le bulletin Classique reste utilisé automatiquement.",
+      previewHelp:
+        "Pour tester le rendu réel : allez dans Explorateur, ouvrez un élève puis cliquez sur « Prévisualiser PDF A4 ». L'aperçu ne publie aucun bulletin.",
+      deleteConfirm:
+        "Supprimer ce modèle ? Les anciens bulletins déjà publiés resteront inchangés.",
+      a4Rule:
+        "Format sélectionné : {orientation}. Avant publication, le moteur réduit automatiquement les espacements si nécessaire. Si le document dépasse toujours une page A4, la publication est refusée.",
+      choices: {
+        classic: {
+          name: "Classique",
+          help:
+            "Présentation administrative traditionnelle, adaptée à la plupart des écoles.",
+        },
+        modern: {
+          name: "Moderne",
+          help:
+            "Branding plus visible, entête et synthèse davantage mis en valeur.",
+        },
+        compact: {
+          name: "Compact",
+          help:
+            "Optimisé pour les classes ou niveaux avec beaucoup de matières.",
+        },
+        secondaryLandscape: {
+          name: "Secondaire paysage",
+          help:
+            "A4 paysage avec davantage d'espace pour les colonnes et appréciations.",
+        },
+      },
+      options: {
+        rank: "Afficher le rang",
+        classAverage: "Afficher la moyenne de classe",
+        effective: "Afficher l'effectif",
+        decision: "Afficher la décision annuelle",
+        subjectComments: "Afficher les appréciations par matière",
+        teacherComment: "Afficher l'appréciation du titulaire",
+        directionComment: "Afficher l'appréciation de la direction",
+        qr: "Afficher le QR de vérification",
+      },
+      messages: {
+        created: "Modèle de bulletin créé.",
+        updated: "Modèle de bulletin mis à jour.",
+        defaultSet: "Modèle défini par défaut.",
+        deleted: "Modèle supprimé.",
+      },
+      errors: {
+        load: "Impossible de charger les modèles de bulletin.",
+        save: "Impossible d'enregistrer le modèle.",
+        defaultSet: "Impossible de définir ce modèle par défaut.",
+        delete: "Impossible de supprimer le modèle.",
+      },
     },
   },
   finance: {

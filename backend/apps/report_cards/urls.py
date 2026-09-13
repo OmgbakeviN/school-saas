@@ -7,6 +7,10 @@ from .views import (
     ClassroomReportCardsZipView,
     PublishReportCardView,
     ReportCardOptionsView,
+    ReportCardPreviewPdfView,
+    ReportCardTemplateDetailView,
+    ReportCardTemplateListCreateView,
+    ReportCardTemplateSetDefaultView,
     ReportCardPdfView,
     ReportCardSnapshotListView,
     StudentAnnualResultView,
@@ -16,6 +20,26 @@ from .views import (
 
 
 urlpatterns = [
+    path(
+        "templates/",
+        ReportCardTemplateListCreateView.as_view(),
+        name="report-card-template-list",
+    ),
+    path(
+        "templates/<int:pk>/",
+        ReportCardTemplateDetailView.as_view(),
+        name="report-card-template-detail",
+    ),
+    path(
+        "templates/<int:template_id>/set-default/",
+        ReportCardTemplateSetDefaultView.as_view(),
+        name="report-card-template-set-default",
+    ),
+    path(
+        "preview/",
+        ReportCardPreviewPdfView.as_view(),
+        name="report-card-preview",
+    ),
     path(
         "options/",
         ReportCardOptionsView.as_view(),

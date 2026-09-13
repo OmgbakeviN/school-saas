@@ -9,10 +9,20 @@ import {
   Search,
   ShieldCheck,
   Users,
+  LayoutTemplate,
+  Eye,
+  ExternalLink,
+  X,
 } from "lucide-react";
 
 import { useI18n } from "../../i18n";
 import api from "../../services/api";
+import {
+  notifyError,
+  notifyInfo,
+  notifySuccess,
+} from "../../lib/toast";
+import ReportCardTemplatesPanel from "./ReportCardTemplatesPanel";
 
 
 const inputClass =
@@ -69,8 +79,7 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState("");
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  const [previewPdf, setPreviewPdf] = useState(null);
 
   const [tab, setTab] = useState("explorer");
   const [options, setOptions] = useState({
@@ -80,6 +89,7 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
     subjects: [],
     full_report_class_ids: [],
     classroom_subjects: {},
+    cycles: [],
   });
   const [snapshots, setSnapshots] = useState([]);
 
@@ -111,8 +121,6 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
     if (initial) setLoading(true);
     else setSyncing(true);
 
-    setError("");
-
     try {
       const [{ data: optionData }, { data: snapshotData }] =
         await Promise.all([
@@ -131,7 +139,7 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
         setYearId((current) => current || String(active.id));
       }
     } catch (err) {
-      setError(parseError(err, t("reportCards.errors.load")));
+      notifyError(parseError(err, t("reportCards.errors.load")));
     } finally {
       if (initial) setLoading(false);
       else setSyncing(false);
@@ -141,6 +149,24 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
   useEffect(() => {
     load({ initial: true });
   }, [role]);
+
+  useEffect(
+    () => () => {
+      if (previewPdf?.url) {
+        URL.revokeObjectURL(previewPdf.url);
+      }
+    },
+    [previewPdf?.url]
+  );
+
+  const closePreview = () => {
+    setPreviewPdf((current) => {
+      if (current?.url) {
+        URL.revokeObjectURL(current.url);
+      }
+      return null;
+    });
+  };
 
   const classrooms = useMemo(
     () =>
@@ -216,8 +242,6 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
     if (mode === "PERIOD" && !periodId) return;
 
     setSaving("explore");
-    setError("");
-    setMessage("");
     setStudentResult(null);
     setSelectedEnrollmentId(null);
 
@@ -242,7 +266,7 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
         setSubjectResults(null);
       }
     } catch (err) {
-      setError(parseError(err, t("reportCards.errors.results")));
+      notifyError(parseError(err, t("reportCards.errors.results")));
     } finally {
       setSaving("");
     }
@@ -250,7 +274,6 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
 
   const openStudent = async (enrollmentId) => {
     setSaving(`student-${enrollmentId}`);
-    setError("");
     setGeneralComment("");
     setTeacherComment("");
     setSubjectComments({});
@@ -265,7 +288,80 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
       setStudentResult(data);
       setSelectedEnrollmentId(enrollmentId);
     } catch (err) {
-      setError(parseError(err, t("reportCards.errors.student")));
+      notifyError(parseError(err, t("reportCards.errors.student")));
+    } finally {
+      setSaving("");
+    }
+  };
+
+  const previewStudentPdf = async () => {
+    if (!selectedEnrollmentId) return;
+
+    setSaving("preview-student");
+
+    const payload = {
+      enrollment: selectedEnrollmentId,
+      report_type: mode,
+      general_comment: generalComment,
+      teacher_comment: teacherComment,
+      subject_comments: subjectComments,
+    };
+
+    if (mode === "PERIOD") {
+      payload.academic_period = Number(periodId);
+    }
+
+    try {
+      const response = await api.post(
+        "/report-cards/preview/",
+        payload,
+        { responseType: "blob" }
+      );
+
+      const blob = response.data;
+      const url = URL.createObjectURL(blob);
+
+      setPreviewPdf((current) => {
+        if (current?.url) {
+          URL.revokeObjectURL(current.url);
+        }
+
+        return {
+          url,
+          blob,
+          pages:
+            response.headers?.["x-report-card-pages"] || "1",
+          template:
+            response.headers?.["x-report-card-template"] ||
+            "CLASSIC",
+          orientation:
+            response.headers?.["x-report-card-orientation"] ||
+            "PORTRAIT",
+        };
+      });
+
+      notifySuccess(
+        t("reportCards.messages.previewReady", {
+          pages:
+            response.headers?.["x-report-card-pages"] || "1",
+        })
+      );
+    } catch (err) {
+      let detail = t("reportCards.errors.preview");
+
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const raw = await err.response.data.text();
+          const parsed = JSON.parse(raw);
+          detail = parsed.detail || detail;
+        } catch {
+          // Keep fallback.
+        }
+      } else {
+        detail = parseError(err, detail);
+      }
+
+      notifyError(detail);
     } finally {
       setSaving("");
     }
@@ -275,8 +371,6 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
     if (!selectedEnrollmentId) return;
 
     setSaving("publish-student");
-    setError("");
-    setMessage("");
 
     try {
       const payload = {
@@ -297,7 +391,7 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
       );
 
       if (data.created_new_version) {
-        setMessage(
+        notifySuccess(
           t("reportCards.messages.published", {
             version: data.snapshot.version,
           })
@@ -305,14 +399,14 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
         await loadSnapshots();
         setTab("published");
       } else {
-        setMessage(
+        notifyInfo(
           t("reportCards.messages.unchanged", {
             version: data.snapshot.version,
           })
         );
       }
     } catch (err) {
-      setError(parseError(err, t("reportCards.errors.publish")));
+      notifyError(parseError(err, t("reportCards.errors.publish")));
     } finally {
       setSaving("");
     }
@@ -327,8 +421,6 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
     if (!confirmed) return;
 
     setSaving("publish-class");
-    setError("");
-    setMessage("");
 
     try {
       const payload = {
@@ -344,7 +436,7 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
         payload
       );
 
-      setMessage(
+      notifySuccess(
         t("reportCards.messages.classPublished", {
           created: data.created,
           unchanged: data.unchanged,
@@ -353,7 +445,7 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
       );
       await loadSnapshots();
     } catch (err) {
-      setError(parseError(err, t("reportCards.errors.publish")));
+      notifyError(parseError(err, t("reportCards.errors.publish")));
     } finally {
       setSaving("");
     }
@@ -364,8 +456,6 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
     if (mode === "PERIOD" && !periodId) return;
 
     setSaving("zip-class");
-    setError("");
-    setMessage("");
 
     try {
       const params = new URLSearchParams();
@@ -410,14 +500,14 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
       const missing =
         response.headers?.["x-report-cards-missing"] || "0";
 
-      setMessage(
+      notifySuccess(
         t("reportCards.messages.zipDownloaded", {
           included,
           missing,
         })
       );
     } catch (err) {
-      setError(parseError(err, t("reportCards.errors.zip")));
+      notifyError(parseError(err, t("reportCards.errors.zip")));
     } finally {
       setSaving("");
     }
@@ -425,7 +515,6 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
 
   const downloadPdf = async (snapshot) => {
     setSaving(`pdf-${snapshot.id}`);
-    setError("");
 
     try {
       const { data } = await api.get(
@@ -443,7 +532,7 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
         `bulletin-${safeName}-v${snapshot.version}.pdf`
       );
     } catch (err) {
-      setError(parseError(err, t("reportCards.errors.pdf")));
+      notifyError(parseError(err, t("reportCards.errors.pdf")));
     } finally {
       setSaving("");
     }
@@ -452,7 +541,7 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
   const copyVerification = async (snapshot) => {
     try {
       await navigator.clipboard.writeText(snapshot.verification_url);
-      setMessage(t("reportCards.messages.verificationCopied"));
+      notifySuccess(t("reportCards.messages.verificationCopied"));
     } catch {
       window.open(snapshot.verification_url, "_blank", "noopener,noreferrer");
     }
@@ -492,10 +581,91 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
   const tabs = [
     ["explorer", t("reportCards.tabs.explorer"), Search],
     ["published", t("reportCards.tabs.published"), FileCheck2],
+    ...(isDirection
+      ? [
+          [
+            "templates",
+            t("reportCards.tabs.templates"),
+            LayoutTemplate,
+          ],
+        ]
+      : []),
   ];
 
   return (
     <div className="space-y-5">
+      {previewPdf && (
+        <div
+          className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/60 p-2 backdrop-blur-sm sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("reportCards.preview.title")}
+        >
+          <div className="flex h-[calc(100dvh-1rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:h-[calc(100dvh-2rem)] sm:rounded-3xl">
+            <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div className="min-w-0">
+                <div className="font-semibold">
+                  {t("reportCards.preview.title")}
+                </div>
+                <div className="mt-0.5 text-xs text-slate-500">
+                  {t("reportCards.preview.meta", {
+                    pages: previewPdf.pages,
+                    template: previewPdf.template,
+                    orientation: previewPdf.orientation,
+                  })}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadBlob(
+                      previewPdf.blob,
+                      "apercu-bulletin.pdf"
+                    )
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50"
+                >
+                  <Download size={14} />
+                  {t("reportCards.preview.download")}
+                </button>
+
+                <a
+                  href={previewPdf.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50"
+                >
+                  <ExternalLink size={14} />
+                  {t("reportCards.preview.newTab")}
+                </a>
+
+                <button
+                  type="button"
+                  onClick={closePreview}
+                  className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  aria-label={t("reportCards.preview.close")}
+                >
+                  <X size={17} />
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 bg-slate-100 p-2 sm:p-3">
+              <iframe
+                title={t("reportCards.preview.title")}
+                src={previewPdf.url}
+                className="h-full w-full rounded-xl border border-slate-200 bg-white"
+              />
+            </div>
+
+            <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-2 text-center text-[11px] text-slate-500">
+              {t("reportCards.preview.nonOfficial")}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div>
           <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
@@ -519,17 +689,6 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
         )}
       </div>
 
-      {error && (
-        <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error}
-        </div>
-      )}
-
-      {message && (
-        <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          {message}
-        </div>
-      )}
 
       <div className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5">
         {tabs.map(([id, label, Icon]) => (
@@ -1026,7 +1185,21 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
                     />
                   </div>
 
-                  <div className="lg:col-span-2 flex justify-end">
+                  <div className="lg:col-span-2 flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={previewStudentPdf}
+                      disabled={saving === "preview-student"}
+                      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-40"
+                    >
+                      {saving === "preview-student" ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Eye size={16} />
+                      )}
+                      {t("reportCards.publish.preview")}
+                    </button>
+
                     <button
                       type="button"
                       onClick={publishStudent}
@@ -1042,6 +1215,15 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
             </section>
           )}
         </>
+      )}
+
+      {tab === "templates" && isDirection && (
+        <ReportCardTemplatesPanel
+          cycles={options.cycles || []}
+          t={t}
+          onMessage={notifySuccess}
+          onError={notifyError}
+        />
       )}
 
       {tab === "published" && (

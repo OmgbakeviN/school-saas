@@ -166,3 +166,12 @@ X-Report-Cards-Missing
 HTTP `200` signifie qu'aucune nouvelle version n'était nécessaire.
 
 HTTP `201` signifie qu'une nouvelle version officielle a été créée.
+
+
+## Extension STEP 06.2
+
+Les endpoints de modèles et de prévisualisation A4 sont documentés dans :
+
+```text
+docs/SWAGGER_STEP_06_2.md
+```

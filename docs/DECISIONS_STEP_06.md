@@ -47,3 +47,14 @@ Il n'est pas reconstruit lors de chaque téléchargement.
 
 STEP 06 n'utilise pas `?format=` pour ses PDF et conserve la correction déjà
 effectuée sur Django REST Framework.
+
+
+## Extension STEP 06.2
+
+Les décisions ADR-045 à ADR-049 concernant les modèles contrôlés, la portée par
+cycle, le gel du template dans le snapshot, la règle une-page A4 et la
+prévisualisation non officielle sont détaillées dans :
+
+```text
+docs/DECISIONS_STEP_06_2.md
+```

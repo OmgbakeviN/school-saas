@@ -355,3 +355,55 @@ Aucune migration et aucun changement backend.
 - [x] fallback `100vh` pour navigateurs sans support `dvh`
 
 Aucune migration et aucun changement backend.
+
+
+---
+
+## STEP 06.2 — Modèles de bulletins & moteur A4
+
+- [x] modèle Django `ReportCardTemplate`
+- [x] modèles CLASSIC / MODERN / COMPACT / SECONDARY_LANDSCAPE
+- [x] modèle général établissement
+- [x] modèle spécifique par cycle
+- [x] modèle par défaut par scope
+- [x] versionnement du modèle
+- [x] options d'affichage rang / moyenne classe / effectif
+- [x] options appréciations / décision / QR
+- [x] échelle typographique configurable
+- [x] template figé dans le payload du snapshot
+- [x] template pris en compte dans la publication intelligente
+- [x] prévisualisation PDF non officielle
+- [x] mention APERÇU sur la prévisualisation
+- [x] moteur de rendu A4 portrait / paysage
+- [x] détection du nombre de pages
+- [x] compactage automatique si dépassement
+- [x] blocage de publication si > 1 feuille A4
+- [x] interface Modèles A4 dans le module Bulletins
+- [x] Swagger mis à jour
+- [x] tests backend ajoutés
+- [x] FR / EN
+- [x] documentation mise à jour
+
+Nouvelle migration :
+
+```text
+report_cards.0002_reportcardtemplate
+```
+
+
+---
+
+## HOTFIX 06.2.1 — Prévisualisation PDF intégrée & notifications
+
+- [x] suppression de l'ouverture d'un onglet blanc avant génération du PDF
+- [x] prévisualisation PDF dans une modale plein écran
+- [x] bouton Télécharger depuis la prévisualisation
+- [x] bouton Ouvrir dans un nouvel onglet après génération réelle du PDF
+- [x] fermeture propre et libération du Blob URL
+- [x] notifications flottantes pour succès / erreurs du module Bulletins
+- [x] notification informative quand aucune nouvelle version n'est nécessaire
+- [x] notifications des actions Modèles A4
+- [x] suppression des anciens blocs de message inline dans Bulletins
+- [x] comportement responsive mobile de la modale PDF
+
+Aucune migration supplémentaire.

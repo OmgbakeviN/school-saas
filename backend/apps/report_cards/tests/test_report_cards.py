@@ -19,7 +19,7 @@ from apps.academics.models import (
 )
 from apps.assessments.models import Assessment, Grade
 from apps.people.models import Enrollment, Student, Teacher
-from apps.report_cards.models import ReportCardSnapshot
+from apps.report_cards.models import ReportCardSnapshot, ReportCardTemplate
 from apps.teaching.models import TeachingAssignment
 from apps.tenants.models import School
 
@@ -396,5 +396,124 @@ class ReportCardTests(TestCase):
         self.assertEqual(
             response.data["promotion_decision_label"],
             "Décision de fin d'année non arrêtée",
+        )
+
+
+    def test_preview_pdf_is_one_a4_page_and_creates_no_snapshot(self):
+        response = self.client.post(
+            "/api/report-cards/preview/",
+            {
+                "enrollment": self.enrollment.id,
+                "report_type": "PERIOD",
+                "academic_period": self.period.id,
+            },
+            format="json",
+            **self.host,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/pdf",
+        )
+        self.assertEqual(response["X-Report-Card-Pages"], "1")
+        self.assertEqual(
+            response["X-Report-Card-Fits-A4"],
+            "true",
+        )
+        self.assertEqual(
+            ReportCardSnapshot.objects.count(),
+            0,
+        )
+
+    def test_cycle_default_template_is_frozen_in_snapshot(self):
+        general = ReportCardTemplate.objects.create(
+            school=self.school,
+            name="Général",
+            template_key=ReportCardTemplate.TemplateKey.CLASSIC,
+            is_default=True,
+        )
+        cycle_template = ReportCardTemplate.objects.create(
+            school=self.school,
+            cycle=self.cycle,
+            name="Primaire compact",
+            template_key=ReportCardTemplate.TemplateKey.COMPACT,
+            is_default=True,
+        )
+
+        response = self.client.post(
+            "/api/report-cards/publish/",
+            {
+                "enrollment": self.enrollment.id,
+                "report_type": "PERIOD",
+                "academic_period": self.period.id,
+            },
+            format="json",
+            **self.host,
+        )
+
+        self.assertEqual(response.status_code, 201)
+        snapshot = ReportCardSnapshot.objects.get()
+        self.assertEqual(
+            snapshot.payload["template"]["id"],
+            cycle_template.id,
+        )
+        self.assertEqual(
+            snapshot.payload["template"]["key"],
+            "COMPACT",
+        )
+        self.assertEqual(
+            snapshot.payload["render"]["page_count"],
+            1,
+        )
+        self.assertTrue(
+            snapshot.payload["render"]["fits_one_page"]
+        )
+
+    def test_template_change_creates_new_report_card_version(self):
+        template = ReportCardTemplate.objects.create(
+            school=self.school,
+            name="Modèle principal",
+            template_key=ReportCardTemplate.TemplateKey.CLASSIC,
+            is_default=True,
+        )
+
+        first = self.client.post(
+            "/api/report-cards/publish/",
+            {
+                "enrollment": self.enrollment.id,
+                "report_type": "PERIOD",
+                "academic_period": self.period.id,
+            },
+            format="json",
+            **self.host,
+        )
+        self.assertEqual(first.status_code, 201)
+
+        template.template_key = (
+            ReportCardTemplate.TemplateKey.MODERN
+        )
+        template.version += 1
+        template.save()
+
+        second = self.client.post(
+            "/api/report-cards/publish/",
+            {
+                "enrollment": self.enrollment.id,
+                "report_type": "PERIOD",
+                "academic_period": self.period.id,
+            },
+            format="json",
+            **self.host,
+        )
+
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(
+            second.data["snapshot"]["version"],
+            2,
+        )
+        self.assertEqual(
+            ReportCardSnapshot.objects.count(),
+            2,
         )
 

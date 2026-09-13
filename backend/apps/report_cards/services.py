@@ -16,6 +16,7 @@ from apps.academics.models import (
     AcademicPolicy,
     AcademicYear,
     Classroom,
+    Cycle,
     LevelSubject,
     Subject,
 )
@@ -28,7 +29,7 @@ from apps.people.models import Enrollment
 from apps.teaching.models import ClassroomLeadership, TeachingAssignment
 from apps.teaching.services import get_teacher_profile_for_user
 
-from .models import ReportCardSnapshot
+from .models import ReportCardSnapshot, ReportCardTemplate
 from .pdf import generate_report_card_pdf
 
 
@@ -246,6 +247,21 @@ def build_options(*, request):
         ],
         "full_report_class_ids": sorted(full_ids),
         "classroom_subjects": classroom_subjects,
+        "cycles": [
+            {
+                "id": item.id,
+                "name": item.name,
+                "section_name": item.section.name,
+            }
+            for item in Cycle.objects.filter(
+                school=school,
+                is_active=True,
+            ).select_related("section").order_by(
+                "section__order",
+                "order",
+                "name",
+            )
+        ],
     }
 
 
@@ -735,6 +751,8 @@ def report_content_payload(payload):
     content.pop("version", None)
     content.pop("published_at", None)
     content.pop("verification", None)
+    content.pop("render", None)
+    content.pop("preview", None)
 
     return content
 
@@ -758,6 +776,196 @@ def _school_payload(school):
         "secondary_color": school.secondary_color,
     }
 
+
+
+def fallback_template_payload():
+    return {
+        "id": None,
+        "name": "Modèle classique",
+        "key": ReportCardTemplate.TemplateKey.CLASSIC,
+        "label": "Classique",
+        "version": 1,
+        "orientation": "PORTRAIT",
+        "font_scale": "1.00",
+        "scope": "SCHOOL",
+        "cycle_id": None,
+        "cycle_name": None,
+        "options": {
+            "show_rank": True,
+            "show_class_average": True,
+            "show_effective": True,
+            "show_decision": True,
+            "show_subject_comments": True,
+            "show_teacher_comment": True,
+            "show_direction_comment": True,
+            "show_qr": True,
+        },
+    }
+
+
+def template_to_payload(template):
+    if template is None:
+        return fallback_template_payload()
+
+    return {
+        "id": template.id,
+        "name": template.name,
+        "key": template.template_key,
+        "label": template.get_template_key_display(),
+        "version": template.version,
+        "orientation": template.orientation,
+        "font_scale": str(template.font_scale),
+        "scope": "CYCLE" if template.cycle_id else "SCHOOL",
+        "cycle_id": template.cycle_id,
+        "cycle_name": (
+            template.cycle.name
+            if template.cycle_id
+            else None
+        ),
+        "options": {
+            "show_rank": template.show_rank,
+            "show_class_average": template.show_class_average,
+            "show_effective": template.show_effective,
+            "show_decision": template.show_decision,
+            "show_subject_comments": template.show_subject_comments,
+            "show_teacher_comment": template.show_teacher_comment,
+            "show_direction_comment": template.show_direction_comment,
+            "show_qr": template.show_qr,
+        },
+    }
+
+
+def resolve_report_card_template(*, enrollment, template_id=None):
+    queryset = ReportCardTemplate.objects.filter(
+        school=enrollment.school,
+    ).select_related("cycle")
+
+    if template_id:
+        return queryset.filter(id=template_id).first()
+
+    cycle_id = enrollment.classroom.level.cycle_id
+
+    template = (
+        queryset.filter(
+            cycle_id=cycle_id,
+            is_default=True,
+        )
+        .order_by("-updated_at")
+        .first()
+    )
+    if template:
+        return template
+
+    template = (
+        queryset.filter(
+            cycle__isnull=True,
+            is_default=True,
+        )
+        .order_by("-updated_at")
+        .first()
+    )
+    if template:
+        return template
+
+    template = (
+        queryset.filter(cycle_id=cycle_id)
+        .order_by("-updated_at")
+        .first()
+    )
+    if template:
+        return template
+
+    return (
+        queryset.filter(cycle__isnull=True)
+        .order_by("-updated_at")
+        .first()
+    )
+
+
+def attach_template_payload(*, payload, enrollment, template_id=None):
+    template = resolve_report_card_template(
+        enrollment=enrollment,
+        template_id=template_id,
+    )
+    if template_id and template is None:
+        raise ValueError(
+            "Le modèle de bulletin sélectionné est introuvable "
+            "dans cet établissement."
+        )
+
+    payload["template"] = template_to_payload(template)
+    return template
+
+
+def preview_verification_url(enrollment):
+    scheme = "http" if settings.DEBUG else "https"
+    host = (
+        f"{enrollment.school.slug}.localhost:8000"
+        if settings.DEBUG
+        else f"{enrollment.school.slug}.{settings.BASE_DOMAIN}"
+    )
+    return f"{scheme}://{host}/verify/report-card/preview-non-official/"
+
+
+def build_preview_report_card(
+    *,
+    enrollment,
+    report_type,
+    publisher,
+    academic_period=None,
+    general_comment="",
+    teacher_comment="",
+    subject_comments=None,
+    template_id=None,
+):
+    if report_type == ReportCardSnapshot.ReportType.PERIOD:
+        payload = build_period_payload(
+            enrollment=enrollment,
+            period=academic_period,
+            version=0,
+            publisher=publisher,
+            general_comment=general_comment,
+            teacher_comment=teacher_comment,
+            subject_comments=subject_comments,
+        )
+    else:
+        payload = build_annual_payload(
+            enrollment=enrollment,
+            version=0,
+            publisher=publisher,
+            general_comment=general_comment,
+            teacher_comment=teacher_comment,
+            subject_comments=subject_comments,
+        )
+
+    attach_template_payload(
+        payload=payload,
+        enrollment=enrollment,
+        template_id=template_id,
+    )
+
+    payload["preview"] = True
+    payload["verification"] = {
+        "url": preview_verification_url(enrollment),
+        "fingerprint": "APERÇU",
+    }
+    payload = json_safe(payload)
+
+    logo_path = None
+    try:
+        if enrollment.school.logo:
+            logo_path = enrollment.school.logo.path
+    except Exception:
+        logo_path = None
+
+    render = generate_report_card_pdf(
+        payload=payload,
+        verification_url=payload["verification"]["url"],
+        logo_path=logo_path,
+        return_meta=True,
+    )
+
+    return payload, render
 
 def build_period_payload(
     *,
@@ -1005,6 +1213,11 @@ def publish_report_card(
             subject_comments=subject_comments,
         )
 
+    attach_template_payload(
+        payload=payload,
+        enrollment=enrollment,
+    )
+
     # No-op publication: keep the existing official version when the
     # meaningful content is strictly identical.
     if (
@@ -1057,11 +1270,36 @@ def publish_report_card(
     except Exception:
         logo_path = None
 
-    pdf_bytes = generate_report_card_pdf(
+    render = generate_report_card_pdf(
         payload=payload,
         verification_url=verification_url,
         logo_path=logo_path,
+        return_meta=True,
     )
+
+    if not render["fits_one_page"]:
+        template_name = payload.get("template", {}).get(
+            "name",
+            "modèle sélectionné",
+        )
+        raise ValueError(
+            "Le bulletin ne tient pas sur une seule page A4 avec "
+            f"« {template_name} ». Essayez le modèle Compact, le modèle "
+            "Secondaire paysage, masquez certaines colonnes ou réduisez "
+            "l'échelle de police."
+        )
+
+    payload["render"] = {
+        "page_count": render["page_count"],
+        "fits_one_page": True,
+        "effective_font_scale": render["scale"],
+        "emergency_compact": render["emergency_compact"],
+        "orientation": render["orientation"],
+    }
+    payload = json_safe(payload)
+    payload_hash = canonical_hash(payload)
+
+    pdf_bytes = render["pdf_bytes"]
     pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
 
     snapshot.payload = payload

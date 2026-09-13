@@ -1,6 +1,7 @@
 const en = {
   common: {
     active: "active",
+    edit: "Edit",
     delete: "Delete",
     cancel: "Cancel",
     back: "Back", continue: "Continue", save: "Save", loading: "Loading…",
@@ -16,7 +17,7 @@ const en = {
   },
   nav: {
     dashboard: "Dashboard", academics: "Academic structure", people: "People & enrollments",
-    teaching: "Teaching assignments", assessments: "Assessments & grades", school: "Institution", account: "My account", team: "Team & access"
+    teaching: "Teaching assignments", assessments: "Assessments & grades", reportCards: "Report cards", finance: "Tuition & payments", school: "Institution", account: "My account", team: "Team & access"
   },
   dashboard: {
     years: "Academic years", classes: "Classes", students: "Students", teachers: "Teachers",
@@ -605,6 +606,7 @@ people: {
     tabs: {
       explorer: "Explorer",
       published: "Published report cards",
+      templates: "A4 templates",
     },
     types: {
       period: "Period report card",
@@ -643,6 +645,7 @@ people: {
     },
     publish: {
       student: "Publish this report card",
+      preview: "Preview A4 PDF",
       classroom: "Publish whole class",
       downloadZip: "Download class ZIP",
       classConfirm:
@@ -670,6 +673,8 @@ people: {
       zipDownloaded:
         "ZIP downloaded: {included} report card(s), {missing} student(s) without a published report card.",
       verificationCopied: "Verification link copied.",
+      previewReady:
+        "A4 preview generated on {pages} page(s). No official report card was created.",
     },
     errors: {
       load: "Unable to load the report card module.",
@@ -678,6 +683,94 @@ people: {
       publish: "Unable to publish the report card.",
       pdf: "Unable to download the PDF.",
       zip: "Unable to download the class report-card ZIP.",
+      preview: "Unable to generate the A4 preview.",
+    },
+
+    preview: {
+      title: "A4 report-card preview",
+      meta:
+        "{pages} page(s) • {template} • {orientation}",
+      download: "Download",
+      newTab: "Open in new tab",
+      close: "Close preview",
+      nonOfficial:
+        "Preview only — no official report card is created until you click Publish.",
+    },
+    templates: {
+      loading: "Loading report-card templates…",
+      createTitle: "Create report-card template",
+      editTitle: "Edit template",
+      formHelp:
+        "The selected template is frozen into every published report card, so later changes never alter old PDFs.",
+      new: "New template",
+      defaultName: "Main template",
+      allCycles: "All cycles",
+      fields: {
+        name: "Template name",
+        scope: "Target cycle",
+        fontScale: "Font scale",
+        layout: "Layout",
+        default: "Default template",
+      },
+      defaultHelp:
+        "A cycle default has priority. Otherwise the school's general default is used.",
+      defaultBadge: "Default",
+      setDefault: "Set as default",
+      listTitle: "Configured templates",
+      listHelp:
+        "Use one general school template and optional cycle-specific templates.",
+      empty:
+        "No saved template. The Classic template is used automatically until you configure one.",
+      previewHelp:
+        "To test real output: open Explorer, select a student, then click “Preview A4 PDF”. Previewing does not publish anything.",
+      deleteConfirm:
+        "Delete this template? Previously published report cards remain unchanged.",
+      a4Rule:
+        "Selected format: {orientation}. Before publication, the renderer automatically tightens spacing when needed. If the document still exceeds one A4 sheet, publication is blocked.",
+      choices: {
+        classic: {
+          name: "Classic",
+          help:
+            "Traditional administrative layout suitable for most schools.",
+        },
+        modern: {
+          name: "Modern",
+          help:
+            "Stronger school branding with a more prominent header and summary.",
+        },
+        compact: {
+          name: "Compact",
+          help:
+            "Optimized for levels with many subjects.",
+        },
+        secondaryLandscape: {
+          name: "Secondary landscape",
+          help:
+            "Landscape A4 with more room for columns and subject comments.",
+        },
+      },
+      options: {
+        rank: "Show rank",
+        classAverage: "Show class average",
+        effective: "Show class size",
+        decision: "Show annual decision",
+        subjectComments: "Show subject comments",
+        teacherComment: "Show class-teacher comment",
+        directionComment: "Show management comment",
+        qr: "Show verification QR",
+      },
+      messages: {
+        created: "Report-card template created.",
+        updated: "Report-card template updated.",
+        defaultSet: "Template set as default.",
+        deleted: "Template deleted.",
+      },
+      errors: {
+        load: "Unable to load report-card templates.",
+        save: "Unable to save the template.",
+        defaultSet: "Unable to set this template as default.",
+        delete: "Unable to delete the template.",
+      },
     },
   },
   finance: {

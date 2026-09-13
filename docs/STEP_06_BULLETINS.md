@@ -283,3 +283,26 @@ La dernière version publiée de chaque bulletin peut être téléchargée en un
 archive ZIP avec un `manifest.txt`.
 
 Voir `docs/STEP_06_1_AMELIORATIONS_BULLETINS.md`.
+
+
+## Extension STEP 06.2 — modèles A4
+
+Le module propose maintenant quatre présentations contrôlées :
+
+```text
+CLASSIC
+MODERN
+COMPACT
+SECONDARY_LANDSCAPE
+```
+
+La direction peut créer un modèle général ou spécifique à un cycle.
+
+Avant publication, le moteur garantit une seule feuille A4 ou refuse le
+document avec une recommandation de configuration.
+
+Voir :
+
+```text
+docs/STEP_06_2_TEMPLATES_BULLETINS_A4.md
+```

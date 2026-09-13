@@ -23,6 +23,121 @@ def report_card_pdf_upload_to(instance, filename):
     )
 
 
+class ReportCardTemplate(models.Model):
+    class TemplateKey(models.TextChoices):
+        CLASSIC = "CLASSIC", "Classique"
+        MODERN = "MODERN", "Moderne"
+        COMPACT = "COMPACT", "Compact"
+        SECONDARY_LANDSCAPE = (
+            "SECONDARY_LANDSCAPE",
+            "Secondaire paysage",
+        )
+
+    school = models.ForeignKey(
+        "tenants.School",
+        on_delete=models.CASCADE,
+        related_name="report_card_templates",
+    )
+    cycle = models.ForeignKey(
+        "academics.Cycle",
+        on_delete=models.PROTECT,
+        related_name="report_card_templates",
+        null=True,
+        blank=True,
+        help_text=(
+            "Vide = modèle valable pour tous les cycles de l'établissement."
+        ),
+    )
+    name = models.CharField(max_length=120)
+    template_key = models.CharField(
+        max_length=40,
+        choices=TemplateKey.choices,
+        default=TemplateKey.CLASSIC,
+    )
+    version = models.PositiveIntegerField(default=1)
+    is_default = models.BooleanField(default=False)
+
+    show_rank = models.BooleanField(default=True)
+    show_class_average = models.BooleanField(default=True)
+    show_effective = models.BooleanField(default=True)
+    show_decision = models.BooleanField(default=True)
+    show_subject_comments = models.BooleanField(default=True)
+    show_teacher_comment = models.BooleanField(default=True)
+    show_direction_comment = models.BooleanField(default=True)
+    show_qr = models.BooleanField(default=True)
+
+    font_scale = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default="1.00",
+        help_text="Échelle entre 0.80 et 1.10.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = (
+            "cycle__order",
+            "-is_default",
+            "name",
+        )
+        constraints = [
+            models.UniqueConstraint(
+                fields=("school", "cycle", "name"),
+                name="unique_report_card_template_name_per_scope",
+            ),
+        ]
+
+    @property
+    def orientation(self):
+        return (
+            "LANDSCAPE"
+            if self.template_key == self.TemplateKey.SECONDARY_LANDSCAPE
+            else "PORTRAIT"
+        )
+
+    def clean(self):
+        errors = {}
+
+        if self.cycle_id and self.cycle.school_id != self.school_id:
+            errors["cycle"] = (
+                "Le cycle n'appartient pas à cet établissement."
+            )
+
+        scale = float(self.font_scale or 1)
+        if scale < 0.80 or scale > 1.10:
+            errors["font_scale"] = (
+                "L'échelle doit être comprise entre 0.80 et 1.10."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+
+        if self.is_default:
+            queryset = ReportCardTemplate.objects.filter(
+                school=self.school,
+            )
+            if self.cycle_id:
+                queryset = queryset.filter(cycle=self.cycle)
+            else:
+                queryset = queryset.filter(cycle__isnull=True)
+
+            if self.pk:
+                queryset = queryset.exclude(pk=self.pk)
+
+            queryset.update(is_default=False)
+
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        scope = self.cycle.name if self.cycle_id else "Tous les cycles"
+        return f"{self.name} - {scope}"
+
+
 class ReportCardSnapshot(models.Model):
     class ReportType(models.TextChoices):
         PERIOD = "PERIOD", "Bulletin de période"

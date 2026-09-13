@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ReportCardSnapshot
+from .models import ReportCardSnapshot, ReportCardTemplate
 
 
 @admin.register(ReportCardSnapshot)
@@ -50,3 +50,27 @@ class ReportCardSnapshotAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(ReportCardTemplate)
+class ReportCardTemplateAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "school",
+        "cycle",
+        "template_key",
+        "version",
+        "is_default",
+        "font_scale",
+        "updated_at",
+    )
+    list_filter = (
+        "school",
+        "template_key",
+        "is_default",
+    )
+    search_fields = (
+        "name",
+        "school__name",
+        "cycle__name",
+    )

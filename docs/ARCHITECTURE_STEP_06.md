@@ -90,3 +90,23 @@ et filtrent systématiquement par établissement.
 
 La vérification publique ne dépend pas du tenant courant : le token long et
 unique résout directement le snapshot.
+
+
+## Extension STEP 06.2 — templates A4
+
+`ReportCardTemplate` appartient à l'établissement et peut éventuellement cibler
+un `Cycle`.
+
+Le snapshot ne conserve pas une FK vers le template mutable : il contient une
+copie complète de la configuration utilisée dans `payload["template"]`.
+
+Le moteur PDF renvoie également des métadonnées de composition :
+
+```text
+page_count
+fits_one_page
+effective_font_scale
+orientation
+```
+
+La publication est interdite lorsque `fits_one_page` est faux.

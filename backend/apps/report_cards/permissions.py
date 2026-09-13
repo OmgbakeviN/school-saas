@@ -16,6 +16,11 @@ PUBLISH_ROLES = {
     SchoolMembership.Role.DIRECTOR,
 }
 
+TEMPLATE_CONFIG_ROLES = {
+    SchoolMembership.Role.OWNER,
+    SchoolMembership.Role.DIRECTOR,
+}
+
 
 class CanUseReportCards(BasePermission):
     message = "Vous n'avez pas accès aux bulletins."
@@ -36,4 +41,17 @@ class CanPublishReportCards(BasePermission):
         return bool(
             membership
             and membership.role in PUBLISH_ROLES
+        )
+
+
+class CanConfigureReportCardTemplates(BasePermission):
+    message = (
+        "La configuration des modèles de bulletin est réservée à la direction."
+    )
+
+    def has_permission(self, request, view):
+        membership = get_school_membership(request)
+        return bool(
+            membership
+            and membership.role in TEMPLATE_CONFIG_ROLES
         )

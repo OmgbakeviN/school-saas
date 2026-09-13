@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.html import escape
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework import status
+from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,16 +14,23 @@ from rest_framework.views import APIView
 from apps.academics.models import AcademicPeriod, Classroom, Subject
 from apps.people.models import Enrollment
 
-from .models import ReportCardSnapshot
-from .permissions import CanPublishReportCards, CanUseReportCards
+from .models import ReportCardSnapshot, ReportCardTemplate
+from .permissions import (
+    CanConfigureReportCardTemplates,
+    CanPublishReportCards,
+    CanUseReportCards,
+)
 from .serializers import (
     BulkPublishReportCardsSerializer,
     BulkPublishResultSerializer,
     ClassroomReportCardsZipSerializer,
+    PreviewReportCardSerializer,
     PublishReportCardSerializer,
     ReportCardPublishResultSerializer,
     ReportCardOptionsSerializer,
     ReportCardSnapshotSerializer,
+    ReportCardTemplateSerializer,
+    SetDefaultTemplateSerializer,
 )
 from .services import (
     build_options,
@@ -31,6 +38,7 @@ from .services import (
     can_view_subject,
     class_annual_results,
     class_period_results,
+    build_preview_report_card,
     latest_snapshots,
     publish_report_card,
     student_annual_result,
@@ -50,6 +58,208 @@ class ReportCardOptionsView(APIView):
     )
     def get(self, request):
         return Response(build_options(request=request))
+
+
+class ReportCardTemplateListCreateView(generics.ListCreateAPIView):
+    serializer_class = ReportCardTemplateSerializer
+    permission_classes = [
+        IsAuthenticated,
+        CanConfigureReportCardTemplates,
+    ]
+
+    def get_queryset(self):
+        return (
+            ReportCardTemplate.objects.filter(
+                school=self.request.school,
+            )
+            .select_related("cycle")
+            .order_by(
+                "cycle__order",
+                "-is_default",
+                "name",
+            )
+        )
+
+    def get_serializer_context(self):
+        return {
+            **super().get_serializer_context(),
+            "request": self.request,
+        }
+
+    @extend_schema(
+        summary="Lister / créer les modèles de bulletin",
+        tags=["Report Cards"],
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="Créer un modèle de bulletin",
+        tags=["Report Cards"],
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+
+class ReportCardTemplateDetailView(
+    generics.RetrieveUpdateDestroyAPIView
+):
+    serializer_class = ReportCardTemplateSerializer
+    permission_classes = [
+        IsAuthenticated,
+        CanConfigureReportCardTemplates,
+    ]
+
+    def get_queryset(self):
+        return ReportCardTemplate.objects.filter(
+            school=self.request.school,
+        ).select_related("cycle")
+
+    def get_serializer_context(self):
+        return {
+            **super().get_serializer_context(),
+            "request": self.request,
+        }
+
+
+class ReportCardTemplateSetDefaultView(APIView):
+    permission_classes = [
+        IsAuthenticated,
+        CanConfigureReportCardTemplates,
+    ]
+
+    @extend_schema(
+        summary="Définir un modèle de bulletin par défaut",
+        request=SetDefaultTemplateSerializer,
+        responses={200: ReportCardTemplateSerializer},
+        tags=["Report Cards"],
+    )
+    def post(self, request, template_id):
+        template = get_object_or_404(
+            ReportCardTemplate.objects.select_related("cycle"),
+            school=request.school,
+            id=template_id,
+        )
+
+        serializer = SetDefaultTemplateSerializer(
+            data=request.data or {"is_default": True}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        template.is_default = serializer.validated_data[
+            "is_default"
+        ]
+        template.version += 1
+        template.save()
+
+        return Response(
+            ReportCardTemplateSerializer(
+                template,
+                context={"request": request},
+            ).data
+        )
+
+
+class ReportCardPreviewPdfView(APIView):
+    permission_classes = [
+        IsAuthenticated,
+        CanPublishReportCards,
+    ]
+
+    @extend_schema(
+        summary="Prévisualiser un bulletin PDF A4 sans le publier",
+        description=(
+            "Génère un PDF temporaire portant la mention APERÇU. "
+            "Aucun ReportCardSnapshot n'est créé. Si la composition "
+            "ne tient pas sur une seule feuille A4, l'API renvoie 409."
+        ),
+        request=PreviewReportCardSerializer,
+        responses={
+            (200, "application/pdf"): OpenApiTypes.BINARY,
+            409: OpenApiTypes.OBJECT,
+        },
+        tags=["Report Cards"],
+    )
+    def post(self, request):
+        serializer = PreviewReportCardSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        enrollment = get_object_or_404(
+            Enrollment.objects.select_related(
+                "school",
+                "student",
+                "academic_year",
+                "classroom",
+                "classroom__level",
+                "classroom__level__cycle",
+                "classroom__level__cycle__section",
+            ),
+            school=request.school,
+            id=data["enrollment"],
+        )
+
+        period = None
+        if data["report_type"] == ReportCardSnapshot.ReportType.PERIOD:
+            period = get_object_or_404(
+                AcademicPeriod,
+                school=request.school,
+                id=data["academic_period"],
+                academic_year=enrollment.academic_year,
+            )
+
+        try:
+            payload, render = build_preview_report_card(
+                enrollment=enrollment,
+                report_type=data["report_type"],
+                academic_period=period,
+                publisher=request.user,
+                general_comment=data.get("general_comment", ""),
+                teacher_comment=data.get("teacher_comment", ""),
+                subject_comments=data.get("subject_comments", {}),
+                template_id=data.get("template"),
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if not render["fits_one_page"]:
+            return Response(
+                {
+                    "detail": (
+                        "Ce modèle ne tient pas sur une seule feuille A4 "
+                        "avec les données de cet élève. Essayez Compact, "
+                        "Secondaire paysage, réduisez l'échelle ou masquez "
+                        "certaines colonnes."
+                    ),
+                    "page_count": render["page_count"],
+                    "template": payload.get("template"),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        response = HttpResponse(
+            render["pdf_bytes"],
+            content_type="application/pdf",
+        )
+        response["Content-Disposition"] = (
+            'inline; filename="apercu-bulletin.pdf"'
+        )
+        response["X-Report-Card-Pages"] = str(
+            render["page_count"]
+        )
+        response["X-Report-Card-Fits-A4"] = "true"
+        response["X-Report-Card-Template"] = (
+            payload.get("template", {}).get("key", "CLASSIC")
+        )
+        response["X-Report-Card-Orientation"] = render[
+            "orientation"
+        ]
+        return response
 
 
 class ClassroomPeriodResultsView(APIView):
