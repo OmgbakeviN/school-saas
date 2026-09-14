@@ -7,11 +7,16 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.accounts.models import SchoolMembership
+from apps.academics.models import Classroom
 from apps.accounts.permissions import IsSchoolAdministrator, IsTenantMember
 from apps.accounts.serializers import (
     SchoolMemberCreateSerializer,
     SchoolMemberSerializer,
     SchoolMemberUpdateSerializer,
+)
+from .dashboard_stats import (
+    build_classroom_statistics,
+    build_dashboard_analytics,
 )
 from .serializers import (
     SchoolOnboardingSerializer,
@@ -30,6 +35,52 @@ def public_context(request):
             if school else None
         )
     })
+
+
+@extend_schema(
+    responses={200: OpenApiTypes.OBJECT},
+    tags=["Tenants"],
+    summary="Statistiques détaillées d'une classe",
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsTenantMember])
+def classroom_statistics(request, classroom_id):
+    school = request.school
+    membership = SchoolMembership.objects.get(
+        school=school,
+        user=request.user,
+        is_active=True,
+    )
+
+    try:
+        classroom = Classroom.objects.select_related(
+            "academic_year",
+            "level__cycle__section",
+        ).get(
+            school=school,
+            id=classroom_id,
+        )
+    except Classroom.DoesNotExist:
+        return Response(
+            {"detail": "Classe introuvable."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    try:
+        data = build_classroom_statistics(
+            school=school,
+            classroom=classroom,
+            membership=membership,
+            user=request.user,
+        )
+    except PermissionError as exc:
+        return Response(
+            {"detail": str(exc)},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    return Response(data)
+
 
 @extend_schema(request=OpenApiTypes.OBJECT, responses={200: OpenApiTypes.OBJECT}, tags=["Tenants"])
 @api_view(["POST"])
@@ -80,6 +131,11 @@ def tenant_dashboard(request):
                 is_active=True,
             ).count(),
         },
+        "analytics": build_dashboard_analytics(
+            school=school,
+            membership=membership,
+            user=request.user,
+        ),
     })
 
 @extend_schema(request=OpenApiTypes.OBJECT, responses={200: OpenApiTypes.OBJECT}, tags=["Tenants"])

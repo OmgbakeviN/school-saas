@@ -337,6 +337,9 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
           orientation:
             response.headers?.["x-report-card-orientation"] ||
             "PORTRAIT",
+          language:
+            response.headers?.["x-report-card-language"] ||
+            "FR",
         };
       });
 
@@ -612,6 +615,7 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
                     pages: previewPdf.pages,
                     template: previewPdf.template,
                     orientation: previewPdf.orientation,
+                    language: previewPdf.language,
                   })}
                 </div>
               </div>
@@ -622,7 +626,9 @@ export default function ReportCardsWorkspace({ role, isDirection }) {
                   onClick={() =>
                     downloadBlob(
                       previewPdf.blob,
-                      "apercu-bulletin.pdf"
+                      previewPdf.language === "EN"
+                        ? "report-card-preview.pdf"
+                        : "apercu-bulletin.pdf"
                     )
                   }
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50"

@@ -43,6 +43,7 @@ const defaultForm = {
   name: "",
   cycle: "",
   template_key: "CLASSIC",
+  language_mode: "AUTO",
   is_default: true,
   show_rank: true,
   show_class_average: true,
@@ -143,6 +144,7 @@ export default function ReportCardTemplatesPanel({
       name: form.name,
       cycle: form.cycle ? Number(form.cycle) : null,
       template_key: form.template_key,
+      language_mode: form.language_mode,
       is_default: form.is_default,
       show_rank: form.show_rank,
       show_class_average: form.show_class_average,
@@ -184,6 +186,7 @@ export default function ReportCardTemplatesPanel({
       name: template.name,
       cycle: template.cycle ? String(template.cycle) : "",
       template_key: template.template_key,
+      language_mode: template.language_mode || "AUTO",
       is_default: template.is_default,
       show_rank: template.show_rank,
       show_class_average: template.show_class_average,
@@ -325,6 +328,35 @@ export default function ReportCardTemplatesPanel({
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-medium text-slate-500">
+              {t("reportCards.templates.fields.language")}
+            </span>
+            <select
+              className={`${inputClass} mt-2`}
+              value={form.language_mode}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  language_mode: event.target.value,
+                })
+              }
+            >
+              <option value="AUTO">
+                {t("reportCards.templates.languages.auto")}
+              </option>
+              <option value="FRENCH">
+                {t("reportCards.templates.languages.french")}
+              </option>
+              <option value="ENGLISH">
+                {t("reportCards.templates.languages.english")}
+              </option>
+            </select>
+            <span className="mt-1.5 block text-[11px] leading-4 text-slate-400">
+              {t("reportCards.templates.languageHelp")}
+            </span>
           </label>
 
           <label className="block">
@@ -577,7 +609,16 @@ export default function ReportCardTemplatesPanel({
                   </div>
                   <div className="mt-1 text-xs text-slate-500">
                     {template.template_label} •{" "}
-                    {template.orientation} • v{template.version}
+                    {template.orientation} •{" "}
+                    {t(
+                      `reportCards.templates.languages.${
+                        template.language_mode === "ENGLISH"
+                          ? "english"
+                          : template.language_mode === "FRENCH"
+                            ? "french"
+                            : "auto"
+                      }`
+                    )} • v{template.version}
                   </div>
                   <div className="mt-1 text-xs text-slate-400">
                     {template.cycle_name ||

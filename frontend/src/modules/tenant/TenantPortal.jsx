@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  BarChart3,
-  BookOpen,
   BookOpenCheck,
   ClipboardCheck,
   FileText,
@@ -12,7 +10,6 @@ import {
   Menu,
   Settings,
   Users,
-  UserRoundCog,
   WalletCards,
   X,
 } from "lucide-react";
@@ -28,6 +25,7 @@ import TeachingWorkspace from "../teaching/TeachingWorkspace";
 import AssessmentWorkspace from "../assessments/AssessmentWorkspace";
 import ReportCardsWorkspace from "../report-cards/ReportCardsWorkspace";
 import FinanceWorkspace from "../finance/FinanceWorkspace";
+import DashboardAnalytics from "./DashboardAnalytics";
 import MembersPanel from "./MembersPanel";
 import MyAccountPanel from "./MyAccountPanel";
 import SchoolSettingsPanel from "./SchoolSettingsPanel";
@@ -263,29 +261,6 @@ export default function TenantPortal({ tenantSlug, initialSchool = null }) {
   const canSeeReportCards = reportCardRoles.has(dashboard.membership.role);
   const canSeeFinance = financeRoles.has(dashboard.membership.role);
 
-  const cards = [
-    {
-      label: t("dashboard.years"),
-      value: dashboard.foundation.academic_years,
-      icon: BookOpen,
-    },
-    {
-      label: t("dashboard.classes"),
-      value: dashboard.foundation.classes,
-      icon: GraduationCap,
-    },
-    {
-      label: t("dashboard.students"),
-      value: dashboard.foundation.students,
-      icon: Users,
-    },
-    {
-      label: t("dashboard.teachers"),
-      value: dashboard.foundation.teachers,
-      icon: UserRoundCog,
-    },
-  ];
-
   const nav = [
     { id: "dashboard", label: t("nav.dashboard"), icon: Home },
     { id: "academics", label: t("nav.academics"), icon: GraduationCap },
@@ -331,6 +306,11 @@ export default function TenantPortal({ tenantSlug, initialSchool = null }) {
   const selectSection = (id) => {
     setSection(id);
     setMobileNavOpen(false);
+
+    if (id === "dashboard") {
+      loadDashboard();
+    }
+
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -458,97 +438,10 @@ export default function TenantPortal({ tenantSlug, initialSchool = null }) {
 
         <main className="min-w-0">
           {section === "dashboard" && (
-            <>
-              <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-                <div className="min-w-0">
-                  <div className="tenant-primary-text text-xs font-semibold uppercase tracking-[0.18em]">
-                    {dashboard.membership.role_label}
-                  </div>
-                  <h1 className="mt-2 break-words text-2xl font-semibold tracking-tight sm:text-3xl">
-                    {dashboard.school.name}
-                  </h1>
-                  <p className="mt-2 break-all text-xs text-slate-500 sm:text-sm">
-                    {portalAddress}
-                  </p>
-                </div>
-                <div className="tenant-hero-badge tenant-primary-soft tenant-primary-border rounded-xl border px-4 py-3 text-sm">
-                  <span className="tenant-primary-text font-medium">
-                    {t("dashboard.foundation")}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4 lg:grid-cols-4">
-                {cards.map(({ label, value, icon: Icon }) => (
-                  <div
-                    key={label}
-                    className="tenant-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs text-slate-500 sm:text-sm">
-                        {label}
-                      </div>
-                      <div className="tenant-primary-soft tenant-primary-text grid h-8 w-8 shrink-0 place-items-center rounded-lg">
-                        <Icon size={17} />
-                      </div>
-                    </div>
-                    <div className="mt-4 text-2xl font-semibold sm:mt-5 sm:text-3xl">
-                      {value}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 grid gap-4 sm:mt-6 lg:grid-cols-[1.4fr_.6fr]">
-                <section className="tenant-card rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-                  <div className="flex items-center gap-3">
-                    <div className="tenant-primary-soft tenant-primary-text grid h-10 w-10 shrink-0 place-items-center rounded-xl">
-                      <BarChart3 size={18} />
-                    </div>
-                    <div className="min-w-0">
-                      <h2 className="font-semibold">{t("dashboard.next")}</h2>
-                      <p className="mt-0.5 text-sm text-slate-500">
-                        {t("dashboard.academics")}
-                      </p>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="tenant-card rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-                  <h2 className="font-semibold">
-                    {t("dashboard.configuration")}
-                  </h2>
-                  <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-3 lg:mt-6 lg:grid-cols-1">
-                    <div>
-                      <dt className="text-slate-400">
-                        {t("dashboard.language")}
-                      </dt>
-                      <dd className="mt-1 font-medium">
-                        {dashboard.school.language_mode}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-400">
-                        {t("dashboard.cycles")}
-                      </dt>
-                      <dd className="mt-1 font-medium">
-                        {dashboard.school.education_level}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-400">
-                        {t("dashboard.activeTeam")}
-                      </dt>
-                      <dd className="mt-1 font-medium">
-                        {t("dashboard.members", {
-                          count: dashboard.foundation.members,
-                        })}
-                      </dd>
-                    </div>
-                  </dl>
-                </section>
-              </div>
-            </>
+            <DashboardAnalytics
+              dashboard={dashboard}
+              portalAddress={portalAddress}
+            />
           )}
 
           {section === "academics" && (

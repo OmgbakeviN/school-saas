@@ -17,6 +17,113 @@ from reportlab.platypus import (
 )
 
 
+PDF_TEXT = {
+    "FR": {
+        "metadata_title": "Bulletin",
+        "period_title": "BULLETIN DE NOTES",
+        "annual_title": "BULLETIN ANNUEL",
+        "preview": "APERÇU - DOCUMENT NON OFFICIEL",
+        "academic_year": "Année scolaire",
+        "student": "Élève",
+        "student_id": "Matricule",
+        "class": "Classe",
+        "level": "Niveau",
+        "class_teacher": "Titulaire / responsable",
+        "class_size": "Effectif",
+        "cycle": "Cycle",
+        "subject": "Matière",
+        "average_short": "Moy.",
+        "scale": "Barème",
+        "coefficient_short": "Coef.",
+        "rank": "Rang",
+        "class_average_short": "Moy. classe",
+        "remark": "Appréciation",
+        "annual_average_short": "Moy. annuelle",
+        "overall_average": "Moyenne générale",
+        "decision": "Décision",
+        "annual_average": "Moyenne annuelle",
+        "teacher_comment": "Appréciation du titulaire",
+        "general_comment": "Appréciation générale",
+        "management": "Direction",
+        "official_verifiable": "Document officiel vérifiable",
+        "version": "Version",
+        "fingerprint": "Empreinte",
+        "scan_qr": "Scannez le QR code pour vérifier l'authenticité.",
+        "term": "trimestre",
+        "semester": "semestre",
+    },
+    "EN": {
+        "metadata_title": "Report Card",
+        "period_title": "REPORT CARD",
+        "annual_title": "ANNUAL REPORT CARD",
+        "preview": "PREVIEW - NON-OFFICIAL DOCUMENT",
+        "academic_year": "Academic Year",
+        "student": "Student",
+        "student_id": "Student ID",
+        "class": "Class",
+        "level": "Level",
+        "class_teacher": "Class Teacher / Homeroom",
+        "class_size": "Class Size",
+        "cycle": "Cycle",
+        "subject": "Subject",
+        "average_short": "Avg.",
+        "scale": "Scale",
+        "coefficient_short": "Coeff.",
+        "rank": "Rank",
+        "class_average_short": "Class avg.",
+        "remark": "Remark",
+        "annual_average_short": "Annual avg.",
+        "overall_average": "Overall Average",
+        "decision": "Decision",
+        "annual_average": "Annual Average",
+        "teacher_comment": "Class Teacher Comment",
+        "general_comment": "General Comment",
+        "management": "School Administration",
+        "official_verifiable": "Verifiable Official Document",
+        "version": "Version",
+        "fingerprint": "Fingerprint",
+        "scan_qr": "Scan the QR code to verify authenticity.",
+        "term": "Term",
+        "semester": "Semester",
+    },
+}
+
+
+def _language_code(payload):
+    language = payload.get("language") or {}
+    code = str(language.get("code") or "FR").upper()
+    return "EN" if code.startswith("EN") else "FR"
+
+
+def _t(payload, key):
+    language = _language_code(payload)
+    return PDF_TEXT[language].get(key, PDF_TEXT["FR"].get(key, key))
+
+
+def _localized_period_name(payload):
+    period = payload.get("period")
+    if not period:
+        return ""
+
+    kind = period.get("kind")
+    order = period.get("order")
+    language = _language_code(payload)
+
+    if kind == "TRIMESTER" and order:
+        if language == "EN":
+            return f"Term {order}"
+        prefix = "1er" if int(order) == 1 else f"{order}e"
+        return f"{prefix} trimestre"
+
+    if kind == "SEMESTER" and order:
+        if language == "EN":
+            return f"Semester {order}"
+        prefix = "1er" if int(order) == 1 else f"{order}e"
+        return f"{prefix} semestre"
+
+    return str(period.get("name") or "")
+
+
 TEMPLATE_DEFAULTS = {
     "CLASSIC": {
         "orientation": "PORTRAIT",
@@ -189,7 +296,7 @@ def _render_once(
         leftMargin=margin,
         topMargin=margin,
         bottomMargin=bottom_margin,
-        title=f"Bulletin - {payload['student']['name']}",
+        title=f"{_t(payload, 'metadata_title')} - {payload['student']['name']}",
         author=payload["school"]["name"],
     )
 
@@ -329,9 +436,9 @@ def _render_once(
     story.append(Spacer(1, spacer_small))
 
     title = (
-        "BULLETIN ANNUEL"
+        _t(payload, "annual_title")
         if payload["report_type"] == "ANNUAL"
-        else "BULLETIN DE NOTES"
+        else _t(payload, "period_title")
     )
     story.append(Paragraph(title, title_style))
     if payload.get("preview"):
@@ -345,15 +452,15 @@ def _render_once(
         )
         story.append(
             Paragraph(
-                "APERÇU - DOCUMENT NON OFFICIEL",
+                _t(payload, "preview"),
                 preview_style,
             )
         )
     story.append(
         Paragraph(
-            f"Année scolaire : {payload['academic_year']['name']}"
+            f"{_t(payload, 'academic_year')} : {payload['academic_year']['name']}"
             + (
-                f" - {payload['period']['name']}"
+                f" - {_localized_period_name(payload)}"
                 if payload.get("period")
                 else ""
             ),
@@ -365,7 +472,11 @@ def _render_once(
     student = payload["student"]
     academic = payload["academic"]
 
-    right_label = "Effectif" if config["show_effective"] else "Cycle"
+    right_label = (
+        _t(payload, "class_size")
+        if config["show_effective"]
+        else _t(payload, "cycle")
+    )
     right_value = (
         payload["summary"].get("class_size")
         if config["show_effective"]
@@ -374,19 +485,19 @@ def _render_once(
 
     identity_data = [
         [
-            Paragraph("<b>Élève</b>", label),
+            Paragraph(f"<b>{_t(payload, 'student')}</b>", label),
             Paragraph(student["name"], body),
-            Paragraph("<b>Matricule</b>", label),
+            Paragraph(f"<b>{_t(payload, 'student_id')}</b>", label),
             Paragraph(_safe(student.get("matricule")), body),
         ],
         [
-            Paragraph("<b>Classe</b>", label),
+            Paragraph(f"<b>{_t(payload, 'class')}</b>", label),
             Paragraph(academic["classroom"], body),
-            Paragraph("<b>Niveau</b>", label),
+            Paragraph(f"<b>{_t(payload, 'level')}</b>", label),
             Paragraph(academic["level"], body),
         ],
         [
-            Paragraph("<b>Titulaire / responsable</b>", label),
+            Paragraph(f"<b>{_t(payload, 'class_teacher')}</b>", label),
             Paragraph(_safe(academic.get("class_teacher")), body),
             Paragraph(f"<b>{right_label}</b>", label),
             Paragraph(_safe(right_value), body),
@@ -456,17 +567,17 @@ def _render_once(
 
     if payload["report_type"] == "PERIOD":
         headers = [
-            "Matière",
-            "Moy.",
-            "Barème",
-            "Coef.",
+            _t(payload, "subject"),
+            _t(payload, "average_short"),
+            _t(payload, "scale"),
+            _t(payload, "coefficient_short"),
         ]
         if show_rank:
-            headers.append("Rang")
+            headers.append(_t(payload, "rank"))
         if show_class_average:
-            headers.append("Moy. classe")
+            headers.append(_t(payload, "class_average_short"))
         if show_subject_comments:
-            headers.append("Appréciation")
+            headers.append(_t(payload, "remark"))
 
         data = [headers]
         for row in payload.get("subjects", []):
@@ -490,13 +601,13 @@ def _render_once(
             data.append(line)
     else:
         headers = [
-            "Matière",
-            "Moy. annuelle",
-            "Barème",
-            "Coef.",
+            _t(payload, "subject"),
+            _t(payload, "annual_average_short"),
+            _t(payload, "scale"),
+            _t(payload, "coefficient_short"),
         ]
         if show_subject_comments:
-            headers.append("Appréciation")
+            headers.append(_t(payload, "remark"))
 
         data = [headers]
         for row in payload.get("subjects", []):
@@ -600,7 +711,7 @@ def _render_once(
     summary = payload["summary"]
     summary_data = [
         [
-            Paragraph("<b>Moyenne générale</b>", body),
+            Paragraph(f"<b>{_t(payload, 'overall_average')}</b>", body),
             Paragraph(
                 f"<b>{_score(summary.get('overall_average'))}</b>",
                 body,
@@ -610,7 +721,7 @@ def _render_once(
 
     if show_rank:
         summary_data[0].extend([
-            Paragraph("<b>Rang</b>", body),
+            Paragraph(f"<b>{_t(payload, 'rank')}</b>", body),
             Paragraph(
                 f"<b>{_safe(summary.get('rank'))} / "
                 f"{_safe(summary.get('class_size'))}</b>",
@@ -619,7 +730,7 @@ def _render_once(
         ])
     else:
         summary_data[0].extend([
-            Paragraph("<b>Barème</b>", body),
+            Paragraph(f"<b>{_t(payload, 'scale')}</b>", body),
             Paragraph(
                 f"<b>{_score(summary.get('default_scale'))}</b>",
                 body,
@@ -631,12 +742,12 @@ def _render_once(
         and config["show_decision"]
     ):
         summary_data.append([
-            Paragraph("<b>Décision</b>", body),
+            Paragraph(f"<b>{_t(payload, 'decision')}</b>", body),
             Paragraph(
                 _safe(summary.get("promotion_decision_label")),
                 body,
             ),
-            Paragraph("<b>Moyenne annuelle</b>", body),
+            Paragraph(f"<b>{_t(payload, 'annual_average')}</b>", body),
             Paragraph(
                 f"<b>{_score(summary.get('overall_average'))}</b>",
                 body,
@@ -699,7 +810,7 @@ def _render_once(
         and comments.get("teacher")
     ):
         comment_blocks.append([
-            Paragraph("<b>Appréciation du titulaire</b>", label),
+            Paragraph(f"<b>{_t(payload, 'teacher_comment')}</b>", label),
             Paragraph(comments["teacher"], body),
         ])
 
@@ -708,7 +819,7 @@ def _render_once(
         and comments.get("general")
     ):
         comment_blocks.append([
-            Paragraph("<b>Appréciation générale</b>", label),
+            Paragraph(f"<b>{_t(payload, 'general_comment')}</b>", label),
             Paragraph(comments["general"], body),
         ])
 
@@ -769,13 +880,13 @@ def _render_once(
     sign_table = Table(
         [[
             Paragraph(
-                "<b>Titulaire / responsable</b>"
+                f"<b>{_t(payload, 'class_teacher')}</b>"
                 + signature_breaks
                 + _safe(signatures.get("class_teacher"), ""),
                 center_small,
             ),
             Paragraph(
-                "<b>Direction</b>"
+                f"<b>{_t(payload, 'management')}</b>"
                 + signature_breaks
                 + _safe(signatures.get("publisher"), ""),
                 center_small,
@@ -801,11 +912,11 @@ def _render_once(
             size_mm=qr_size,
         )
         verification_text = Paragraph(
-            "<b>Document officiel vérifiable</b><br/>"
-            f"Version {payload['version']}<br/>"
-            f"Empreinte : "
+            f"<b>{_t(payload, 'official_verifiable')}</b><br/>"
+            f"{_t(payload, 'version')} {payload['version']}<br/>"
+            f"{_t(payload, 'fingerprint')} : "
             f"{payload['verification']['fingerprint']}<br/>"
-            "Scannez le QR code pour vérifier l'authenticité.",
+            f"{_t(payload, 'scan_qr')}",
             body,
         )
         qr_col = qr_size + 3

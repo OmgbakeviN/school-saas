@@ -43,6 +43,7 @@ class ReportCardTemplateSerializer(serializers.ModelSerializer):
             "orientation",
             "version",
             "is_default",
+            "language_mode",
             "show_rank",
             "show_class_average",
             "show_effective",

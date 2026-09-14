@@ -59,6 +59,7 @@ class ReportCardTemplateAdmin(admin.ModelAdmin):
         "school",
         "cycle",
         "template_key",
+        "language_mode",
         "version",
         "is_default",
         "font_scale",
@@ -67,6 +68,7 @@ class ReportCardTemplateAdmin(admin.ModelAdmin):
     list_filter = (
         "school",
         "template_key",
+        "language_mode",
         "is_default",
     )
     search_fields = (

@@ -24,6 +24,11 @@ def report_card_pdf_upload_to(instance, filename):
 
 
 class ReportCardTemplate(models.Model):
+    class LanguageMode(models.TextChoices):
+        AUTO = "AUTO", "Automatique selon la section"
+        FRENCH = "FRENCH", "Français"
+        ENGLISH = "ENGLISH", "English"
+
     class TemplateKey(models.TextChoices):
         CLASSIC = "CLASSIC", "Classique"
         MODERN = "MODERN", "Moderne"
@@ -56,6 +61,15 @@ class ReportCardTemplate(models.Model):
     )
     version = models.PositiveIntegerField(default=1)
     is_default = models.BooleanField(default=False)
+    language_mode = models.CharField(
+        max_length=20,
+        choices=LanguageMode.choices,
+        default=LanguageMode.AUTO,
+        help_text=(
+            "AUTO utilise la langue de la section de l'élève. "
+            "Français ou English force la langue du PDF."
+        ),
+    )
 
     show_rank = models.BooleanField(default=True)
     show_class_average = models.BooleanField(default=True)

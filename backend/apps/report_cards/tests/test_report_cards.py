@@ -517,3 +517,122 @@ class ReportCardTests(TestCase):
             2,
         )
 
+    def test_auto_language_uses_english_section_for_pdf_payload(self):
+        self.section.language = Section.Language.ENGLISH
+        self.section.name = "English Section"
+        self.section.save(update_fields=("language", "name"))
+
+        template = ReportCardTemplate.objects.create(
+            school=self.school,
+            cycle=self.cycle,
+            name="Automatic bilingual template",
+            template_key=ReportCardTemplate.TemplateKey.MODERN,
+            language_mode=ReportCardTemplate.LanguageMode.AUTO,
+            is_default=True,
+        )
+
+        response = self.client.post(
+            "/api/report-cards/publish/",
+            {
+                "enrollment": self.enrollment.id,
+                "report_type": "PERIOD",
+                "academic_period": self.period.id,
+            },
+            format="json",
+            **self.host,
+        )
+
+        self.assertEqual(response.status_code, 201)
+        snapshot = ReportCardSnapshot.objects.get()
+        self.assertEqual(snapshot.payload["language"]["code"], "EN")
+        self.assertEqual(snapshot.payload["language"]["source"], "SECTION")
+        self.assertEqual(
+            snapshot.payload["template"]["language_mode"],
+            "AUTO",
+        )
+        self.assertEqual(
+            snapshot.payload["subjects"][0]["appreciation"],
+            "Good work.",
+        )
+        self.assertEqual(
+            snapshot.payload["comments"]["teacher"],
+            "Good work.",
+        )
+        self.assertEqual(
+            snapshot.payload["summary"]["promotion_decision_label"],
+            "End-of-year decision pending",
+        )
+
+    def test_template_can_force_french_for_english_section(self):
+        self.section.language = Section.Language.ENGLISH
+        self.section.save(update_fields=("language",))
+
+        ReportCardTemplate.objects.create(
+            school=self.school,
+            cycle=self.cycle,
+            name="Forced French",
+            language_mode=ReportCardTemplate.LanguageMode.FRENCH,
+            is_default=True,
+        )
+
+        response = self.client.post(
+            "/api/report-cards/publish/",
+            {
+                "enrollment": self.enrollment.id,
+                "report_type": "PERIOD",
+                "academic_period": self.period.id,
+            },
+            format="json",
+            **self.host,
+        )
+
+        self.assertEqual(response.status_code, 201)
+        snapshot = ReportCardSnapshot.objects.get()
+        self.assertEqual(snapshot.payload["language"]["code"], "FR")
+        self.assertEqual(snapshot.payload["language"]["source"], "TEMPLATE")
+        self.assertEqual(
+            snapshot.payload["subjects"][0]["appreciation"],
+            "Bon travail.",
+        )
+
+    def test_language_change_creates_new_report_card_version(self):
+        template = ReportCardTemplate.objects.create(
+            school=self.school,
+            cycle=self.cycle,
+            name="Language version test",
+            language_mode=ReportCardTemplate.LanguageMode.FRENCH,
+            is_default=True,
+        )
+
+        first = self.client.post(
+            "/api/report-cards/publish/",
+            {
+                "enrollment": self.enrollment.id,
+                "report_type": "PERIOD",
+                "academic_period": self.period.id,
+            },
+            format="json",
+            **self.host,
+        )
+        self.assertEqual(first.status_code, 201)
+
+        template.language_mode = ReportCardTemplate.LanguageMode.ENGLISH
+        template.version += 1
+        template.save()
+
+        second = self.client.post(
+            "/api/report-cards/publish/",
+            {
+                "enrollment": self.enrollment.id,
+                "report_type": "PERIOD",
+                "academic_period": self.period.id,
+            },
+            format="json",
+            **self.host,
+        )
+
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(second.data["snapshot"]["version"], 2)
+        latest = ReportCardSnapshot.objects.order_by("-version").first()
+        self.assertEqual(latest.payload["language"]["code"], "EN")
+

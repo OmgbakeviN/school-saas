@@ -407,3 +407,61 @@ report_cards.0002_reportcardtemplate
 - [x] comportement responsive mobile de la modale PDF
 
 Aucune migration supplémentaire.
+
+---
+
+## STEP 06.2.2 - Bulletins FR/EN automatiques
+
+- [x] langue du bulletin indépendante de la langue de l'interface
+- [x] `AUTO` basé sur la langue de la section académique
+- [x] override `FRENCH` / `ENGLISH` au niveau du template
+- [x] langue figée dans le payload du `ReportCardSnapshot`
+- [x] labels PDF français traduits en anglais
+- [x] titres période / annuel bilingues
+- [x] termes / semestres standards localisés
+- [x] appréciations automatiques FR/EN
+- [x] décisions de promotion FR/EN
+- [x] QR / vérification FR/EN
+- [x] configuration de langue dans l'onglet Modèles A4
+- [x] langue affichée dans la prévisualisation A4
+- [x] changement de langue pris en compte par le versionnement intelligent
+- [x] tests backend ajoutés
+- [x] documentation mise à jour
+
+Nouvelle migration :
+
+```text
+report_cards.0003_reportcardtemplate_language_mode
+```
+
+
+---
+
+## STEP 07.4.1 — Statistiques détaillées par classe
+
+- [x] classes du dashboard cliquables
+- [x] toutes les classes actives accessibles dans la liste scrollable
+- [x] endpoint explicite `/tenant/dashboard/classrooms/{id}/statistics/`
+- [x] isolation multi-tenant
+- [x] restriction enseignant à ses propres classes
+- [x] population / capacité / taux d'occupation
+- [x] répartition filles / garçons
+- [x] équipe pédagogique / titulaire / professeur principal
+- [x] matières du programme via `LevelSubject`
+- [x] workflow des évaluations par classe
+- [x] taux de publication
+- [x] bulletins publiés
+- [x] moyenne annuelle
+- [x] décisions de promotion
+- [x] moyennes par matière sur notes `PUBLISHED`
+- [x] normalisation des moyennes par matière sur 20
+- [x] pension attendue / encaissée / reste par classe
+- [x] comptes pension soldés / partiels / impayés
+- [x] modale responsive desktop / mobile
+- [x] thème dynamique de l'établissement conservé
+- [x] erreurs sous forme de notifications flottantes
+- [x] FR / EN
+- [x] tests backend ajoutés
+- [x] documentation mise à jour
+
+Aucune migration.

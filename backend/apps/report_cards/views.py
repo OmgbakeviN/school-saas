@@ -246,8 +246,14 @@ class ReportCardPreviewPdfView(APIView):
             render["pdf_bytes"],
             content_type="application/pdf",
         )
+        language_code = payload.get("language", {}).get("code", "FR")
+        preview_filename = (
+            "report-card-preview.pdf"
+            if language_code == "EN"
+            else "apercu-bulletin.pdf"
+        )
         response["Content-Disposition"] = (
-            'inline; filename="apercu-bulletin.pdf"'
+            f'inline; filename="{preview_filename}"'
         )
         response["X-Report-Card-Pages"] = str(
             render["page_count"]
@@ -259,6 +265,7 @@ class ReportCardPreviewPdfView(APIView):
         response["X-Report-Card-Orientation"] = render[
             "orientation"
         ]
+        response["X-Report-Card-Language"] = language_code
         return response
 
 

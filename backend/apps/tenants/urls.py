@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import (
+    classroom_statistics,
     create_school,
     public_context,
     school_member_detail,
@@ -12,6 +13,11 @@ urlpatterns = [
     path("public/context/", public_context, name="public-context"),
     path("public/onboarding/schools/", create_school, name="create-school"),
     path("tenant/dashboard/", tenant_dashboard, name="tenant-dashboard"),
+    path(
+        "tenant/dashboard/classrooms/<int:classroom_id>/statistics/",
+        classroom_statistics,
+        name="tenant-dashboard-classroom-statistics",
+    ),
     path("tenant/settings/", school_settings, name="school-settings"),
     path("tenant/members/", school_members, name="school-members"),
     path(
