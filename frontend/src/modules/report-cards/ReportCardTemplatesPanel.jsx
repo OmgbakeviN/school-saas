@@ -52,6 +52,7 @@ const defaultForm = {
   show_subject_comments: true,
   show_teacher_comment: true,
   show_direction_comment: true,
+  show_student_photo: false,
   show_qr: true,
   font_scale: "1.00",
 };
@@ -153,6 +154,7 @@ export default function ReportCardTemplatesPanel({
       show_subject_comments: form.show_subject_comments,
       show_teacher_comment: form.show_teacher_comment,
       show_direction_comment: form.show_direction_comment,
+      show_student_photo: form.show_student_photo,
       show_qr: form.show_qr,
       font_scale: form.font_scale,
     };
@@ -195,6 +197,7 @@ export default function ReportCardTemplatesPanel({
       show_subject_comments: template.show_subject_comments,
       show_teacher_comment: template.show_teacher_comment,
       show_direction_comment: template.show_direction_comment,
+      show_student_photo: Boolean(template.show_student_photo),
       show_qr: template.show_qr,
       font_scale: String(template.font_scale),
     });
@@ -519,6 +522,13 @@ export default function ReportCardTemplatesPanel({
             label={t(
               "reportCards.templates.options.directionComment"
             )}
+          />
+          <Toggle
+            checked={form.show_student_photo}
+            onChange={(value) =>
+              setForm({ ...form, show_student_photo: value })
+            }
+            label={t("reportCards.templates.options.studentPhoto")}
           />
           <Toggle
             checked={form.show_qr}

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Loader2, Save } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Camera, Loader2, Save, Trash2, Upload } from "lucide-react";
 
 import Dialog from "../../components/Dialog";
 import Field from "../../components/Field";
@@ -47,7 +47,22 @@ export default function StudentDialog({
   const { t } = useI18n();
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [removingPhoto, setRemovingPhoto] = useState(false);
   const [error, setError] = useState("");
+  const [photoFile, setPhotoFile] = useState(null);
+  const [currentPhoto, setCurrentPhoto] = useState(null);
+  const [savedId, setSavedId] = useState(null);
+
+  const localPreview = useMemo(() => {
+    if (!photoFile) return null;
+    return URL.createObjectURL(photoFile);
+  }, [photoFile]);
+
+  useEffect(() => {
+    return () => {
+      if (localPreview) URL.revokeObjectURL(localPreview);
+    };
+  }, [localPreview]);
 
   useEffect(() => {
     if (!open) return;
@@ -71,6 +86,9 @@ export default function StudentDialog({
           }
         : emptyForm
     );
+    setSavedId(student?.id || null);
+    setCurrentPhoto(student?.photo_url || null);
+    setPhotoFile(null);
     setError("");
   }, [open, student]);
 
@@ -86,11 +104,27 @@ export default function StudentDialog({
     };
 
     try {
-      const { data } = student
-        ? await api.patch(`/people/students/${student.id}/`, payload)
+      const response = savedId
+        ? await api.patch(`/people/students/${savedId}/`, payload)
         : await api.post("/people/students/", payload);
 
-      await onSaved?.(data);
+      let savedStudent = response.data;
+      setSavedId(savedStudent.id);
+
+      if (photoFile) {
+        const photoPayload = new FormData();
+        photoPayload.append("photo", photoFile);
+        const photoResponse = await api.post(
+          `/people/students/${savedStudent.id}/photo/`,
+          photoPayload,
+          { timeout: 30000 }
+        );
+        savedStudent = photoResponse.data;
+        setCurrentPhoto(savedStudent.photo_url || null);
+        setPhotoFile(null);
+      }
+
+      await onSaved?.(savedStudent);
       onClose?.();
     } catch (err) {
       setError(parseError(err, t("people.errors.saveStudent")));
@@ -99,12 +133,35 @@ export default function StudentDialog({
     }
   };
 
+  const removePhoto = async () => {
+    if (!savedId) {
+      setPhotoFile(null);
+      setCurrentPhoto(null);
+      return;
+    }
+
+    setRemovingPhoto(true);
+    setError("");
+    try {
+      const { data } = await api.delete(`/people/students/${savedId}/photo/`);
+      setCurrentPhoto(null);
+      setPhotoFile(null);
+      await onSaved?.(data);
+    } catch (err) {
+      setError(parseError(err, t("people.errors.removePhoto")));
+    } finally {
+      setRemovingPhoto(false);
+    }
+  };
+
+  const preview = localPreview || currentPhoto;
+
   return (
     <Dialog
       open={open}
       onClose={() => !saving && onClose?.()}
       title={
-        student
+        student || savedId
           ? t("people.students.editTitle")
           : t("people.students.createTitle")
       }
@@ -138,6 +195,59 @@ export default function StudentDialog({
             {error}
           </div>
         )}
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            {preview ? (
+              <img
+                src={preview}
+                alt={t("people.students.photo")}
+                className="h-28 w-28 shrink-0 rounded-2xl border border-white bg-white object-cover shadow-sm"
+              />
+            ) : (
+              <div className="grid h-28 w-28 shrink-0 place-items-center rounded-2xl border border-dashed border-slate-300 bg-white text-slate-400">
+                <Camera size={28} />
+              </div>
+            )}
+
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-slate-900">
+                {t("people.students.photo")}
+              </div>
+              <div className="mt-1 text-xs leading-5 text-slate-500">
+                {t("people.students.photoHelp")}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  <Upload size={14} />
+                  {t("people.students.choosePhoto")}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] || null;
+                      setPhotoFile(file);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+
+                {(preview || photoFile) && (
+                  <button
+                    type="button"
+                    disabled={removingPhoto}
+                    onClick={removePhoto}
+                    className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                  >
+                    {removingPhoto ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    {t("people.students.removePhoto")}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("people.students.matricule")} hint={t("people.students.autoCode")}>

@@ -5,6 +5,8 @@ from rest_framework.decorators import api_view, parser_classes, permission_class
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from django.http import HttpResponse
+from django.utils.text import slugify
 
 from apps.accounts.models import SchoolMembership
 from apps.academics.models import Classroom
@@ -13,6 +15,10 @@ from apps.accounts.serializers import (
     SchoolMemberCreateSerializer,
     SchoolMemberSerializer,
     SchoolMemberUpdateSerializer,
+)
+from .dashboard_pdf import (
+    generate_classroom_statistics_pdf,
+    generate_dashboard_statistics_pdf,
 )
 from .dashboard_stats import (
     build_classroom_statistics,
@@ -80,6 +86,109 @@ def classroom_statistics(request, classroom_id):
         )
 
     return Response(data)
+
+
+@extend_schema(
+    responses={(200, "application/pdf"): OpenApiTypes.BINARY},
+    tags=["Tenants"],
+    summary="Télécharger les statistiques du tableau de bord en PDF",
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsTenantMember])
+def dashboard_statistics_pdf(request):
+    school = request.school
+    membership = SchoolMembership.objects.get(
+        school=school,
+        user=request.user,
+        is_active=True,
+    )
+    analytics = build_dashboard_analytics(
+        school=school,
+        membership=membership,
+        user=request.user,
+    )
+    pdf_bytes = generate_dashboard_statistics_pdf(
+        school=school,
+        analytics=analytics,
+        language=request.query_params.get("language", "fr"),
+    )
+
+    year_name = (
+        (analytics.get("academic_year") or {}).get("name")
+        or "statistics"
+    )
+    filename = (
+        f"statistiques-{slugify(school.name)}-{slugify(year_name)}.pdf"
+    )
+    response = HttpResponse(
+        pdf_bytes,
+        content_type="application/pdf",
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="{filename}"'
+    )
+    return response
+
+
+@extend_schema(
+    responses={(200, "application/pdf"): OpenApiTypes.BINARY},
+    tags=["Tenants"],
+    summary="Télécharger les statistiques détaillées d'une classe en PDF",
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsTenantMember])
+def classroom_statistics_pdf(request, classroom_id):
+    school = request.school
+    membership = SchoolMembership.objects.get(
+        school=school,
+        user=request.user,
+        is_active=True,
+    )
+
+    try:
+        classroom = Classroom.objects.select_related(
+            "academic_year",
+            "level__cycle__section",
+        ).get(
+            school=school,
+            id=classroom_id,
+        )
+    except Classroom.DoesNotExist:
+        return Response(
+            {"detail": "Classe introuvable."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    try:
+        statistics = build_classroom_statistics(
+            school=school,
+            classroom=classroom,
+            membership=membership,
+            user=request.user,
+        )
+    except PermissionError as exc:
+        return Response(
+            {"detail": str(exc)},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    pdf_bytes = generate_classroom_statistics_pdf(
+        school=school,
+        statistics=statistics,
+        language=request.query_params.get("language", "fr"),
+    )
+    filename = (
+        f"statistiques-classe-{slugify(classroom.name)}-"
+        f"{slugify(classroom.academic_year.name)}.pdf"
+    )
+    response = HttpResponse(
+        pdf_bytes,
+        content_type="application/pdf",
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="{filename}"'
+    )
+    return response
 
 
 @extend_schema(request=OpenApiTypes.OBJECT, responses={200: OpenApiTypes.OBJECT}, tags=["Tenants"])

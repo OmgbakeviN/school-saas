@@ -4,6 +4,7 @@ import {
   BookOpenCheck,
   CheckCircle2,
   ClipboardCheck,
+  FileDown,
   GraduationCap,
   Loader2,
   TrendingUp,
@@ -53,6 +54,17 @@ function formatMoney(value, currency, language) {
   } catch {
     return `${formatNumber(amount, language)} ${currency || "XAF"}`;
   }
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function ProgressBar({ value, muted = false }) {
@@ -211,6 +223,7 @@ export default function ClassroomStatisticsModal({
   const { t, language } = useI18n();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
     if (!classroom?.id) return undefined;
@@ -277,6 +290,38 @@ export default function ClassroomStatisticsModal({
       .join(" • ");
   }, [stats, classroom]);
 
+
+  const downloadStatisticsPdf = async () => {
+    if (!classroom?.id) return;
+
+    setDownloadingPdf(true);
+
+    try {
+      const { data } = await api.get(
+        `/tenant/dashboard/classrooms/${classroom.id}/statistics.pdf`,
+        {
+          params: { language },
+          responseType: "blob",
+        }
+      );
+
+      const safeName = (title || "classroom")
+        .replace(/[^a-z0-9-_]/gi, "-");
+
+      downloadBlob(
+        data,
+        `class-statistics-${safeName}.pdf`
+      );
+    } catch (error) {
+      notifyError(
+        error?.response?.data?.detail ||
+          t("dashboard.classDetail.pdfDownloadError")
+      );
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-2 backdrop-blur-sm sm:p-4"
@@ -322,14 +367,35 @@ export default function ClassroomStatisticsModal({
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={onClose}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
-              aria-label={t("dashboard.classDetail.close")}
-            >
-              <X size={18} />
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={downloadStatisticsPdf}
+                disabled={loading || downloadingPdf || !stats}
+                className="tenant-primary-bg inline-flex h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium text-white shadow-sm transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label={t("dashboard.classDetail.downloadPdf")}
+              >
+                {downloadingPdf ? (
+                  <Loader2 size={17} className="animate-spin" />
+                ) : (
+                  <FileDown size={17} />
+                )}
+                <span className="hidden sm:inline">
+                  {downloadingPdf
+                    ? t("dashboard.classDetail.downloadingPdf")
+                    : t("dashboard.classDetail.downloadPdf")}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="grid h-10 w-10 place-items-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+                aria-label={t("dashboard.classDetail.close")}
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
         </div>
 

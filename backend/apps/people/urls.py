@@ -27,6 +27,7 @@ from .views import (
     StudentGuardianDetailView,
     StudentGuardianListCreateView,
     StudentListCreateView,
+    StudentPhotoView,
     TeacherDetailView,
     TeacherListCreateView,
     people_summary,
@@ -49,6 +50,11 @@ urlpatterns = [
         "students/<int:pk>/",
         StudentDetailView.as_view(),
         name="student-detail",
+    ),
+    path(
+        "students/<int:pk>/photo/",
+        StudentPhotoView.as_view(),
+        name="student-photo",
     ),
     path(
         "teachers/",

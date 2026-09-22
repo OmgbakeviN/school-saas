@@ -8,6 +8,8 @@ import {
   CircleDollarSign,
   ClipboardCheck,
   FileCheck2,
+  FileDown,
+  Loader2,
   GraduationCap,
   School,
   TrendingUp,
@@ -17,6 +19,8 @@ import {
 } from "lucide-react";
 
 import { useI18n } from "../../i18n";
+import { notifyError } from "../../lib/toast";
+import api from "../../services/api";
 import ClassroomStatisticsModal from "./ClassroomStatisticsModal";
 
 
@@ -70,6 +74,7 @@ function StatCard({
   icon: Icon,
   emphasis = false,
 }) {
+
   return (
     <div
       className={`tenant-card rounded-2xl border p-4 shadow-sm sm:p-5 ${
@@ -145,12 +150,24 @@ function EmptyState({ children }) {
   );
 }
 
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function DashboardAnalytics({
   dashboard,
   portalAddress,
 }) {
   const { t, language } = useI18n();
   const [selectedClassroom, setSelectedClassroom] = useState(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const analytics = dashboard.analytics || {};
   const year = analytics.academic_year;
   const population = analytics.population || {
@@ -285,6 +302,37 @@ export default function DashboardAnalytics({
             },
       ];
 
+
+  const downloadStatisticsPdf = async () => {
+    setDownloadingPdf(true);
+
+    try {
+      const { data } = await api.get(
+        "/tenant/dashboard/statistics.pdf",
+        {
+          params: { language },
+          responseType: "blob",
+        }
+      );
+
+      const safeSchool = (
+        dashboard.school?.slug || "school"
+      ).replace(/[^a-z0-9-_]/gi, "-");
+
+      downloadBlob(
+        data,
+        `statistics-${safeSchool}.pdf`
+      );
+    } catch (error) {
+      notifyError(
+        error?.response?.data?.detail ||
+          t("dashboard.stats.pdfDownloadError")
+      );
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   return (
     <div>
       {selectedClassroom && (
@@ -328,7 +376,24 @@ export default function DashboardAnalytics({
             )}
           </div>
 
-          <div className="min-w-[220px] rounded-2xl border border-white/70 bg-white/75 p-4 backdrop-blur">
+          <div className="flex min-w-[220px] flex-col gap-2">
+            <button
+              type="button"
+              onClick={downloadStatisticsPdf}
+              disabled={downloadingPdf}
+              className="tenant-primary-bg inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {downloadingPdf ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <FileDown size={16} />
+              )}
+              {downloadingPdf
+                ? t("dashboard.stats.downloadingPdf")
+                : t("dashboard.stats.downloadPdf")}
+            </button>
+
+            <div className="rounded-2xl border border-white/70 bg-white/75 p-4 backdrop-blur">
             <div className="flex items-center justify-between gap-3 text-xs">
               <span className="font-medium text-slate-600">
                 {year?.name || t("dashboard.stats.noActiveYear")}
@@ -350,6 +415,7 @@ export default function DashboardAnalytics({
                 {t("dashboard.stats.yearProgress")}
               </span>
             </div>
+          </div>
           </div>
         </div>
       </section>

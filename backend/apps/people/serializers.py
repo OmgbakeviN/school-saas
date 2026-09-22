@@ -31,6 +31,8 @@ class TenantModelSerializer(serializers.ModelSerializer):
 class StudentSerializer(TenantModelSerializer):
     matricule = serializers.CharField(required=False, allow_blank=True, max_length=60)
     current_enrollment = serializers.SerializerMethodField()
+    photo_url = serializers.SerializerMethodField()
+    guardians = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
@@ -49,20 +51,59 @@ class StudentSerializer(TenantModelSerializer):
             "admission_date",
             "status",
             "notes",
+            "photo_url",
+            "guardians",
             "current_enrollment",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ("created_at", "updated_at")
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_photo_url(self, obj):
+        if not obj.photo:
+            return None
+        try:
+            url = obj.photo.url
+        except Exception:
+            return None
+
+        request = self.context.get("request")
+        return request.build_absolute_uri(url) if request else url
+
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
+    def get_guardians(self, obj):
+        links = obj.guardian_links.all()
+        return [
+            {
+                "link_id": link.id,
+                "id": link.guardian_id,
+                "name": (
+                    f"{link.guardian.last_name} {link.guardian.first_name}"
+                ).strip(),
+                "phone": link.guardian.phone,
+                "alternate_phone": link.guardian.alternate_phone,
+                "relationship": link.relationship,
+                "relationship_label": link.get_relationship_display(),
+                "is_primary": link.is_primary,
+                "receives_notifications": link.receives_notifications,
+                "can_receive_results": link.can_receive_results,
+            }
+            for link in links
+        ]
+
     @extend_schema_field(serializers.DictField(allow_null=True))
     def get_current_enrollment(self, obj):
-        enrollment = (
-            obj.enrollments
-            .select_related("academic_year", "classroom")
-            .filter(academic_year__is_active=True)
-            .first()
-        )
+        active_enrollments = getattr(obj, "active_enrollments", None)
+        if active_enrollments is not None:
+            enrollment = active_enrollments[0] if active_enrollments else None
+        else:
+            enrollment = (
+                obj.enrollments
+                .select_related("academic_year", "classroom")
+                .filter(academic_year__is_active=True)
+                .first()
+            )
 
         if not enrollment:
             return None
@@ -219,6 +260,7 @@ class TeacherSerializer(TenantModelSerializer):
 class GuardianSerializer(TenantModelSerializer):
     children_count = serializers.IntegerField(read_only=True)
     linked_account = serializers.SerializerMethodField()
+    children = serializers.SerializerMethodField()
 
     class Meta:
         model = Guardian
@@ -236,10 +278,40 @@ class GuardianSerializer(TenantModelSerializer):
             "preferred_language",
             "is_active",
             "children_count",
+            "children",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ("created_at", "updated_at")
+
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
+    def get_children(self, obj):
+        items = []
+        for link in obj.student_links.all():
+            student = link.student
+            active_enrollments = getattr(student, "active_enrollments", None)
+            if active_enrollments is None:
+                active_enrollments = list(
+                    student.enrollments.select_related(
+                        "classroom",
+                        "academic_year",
+                    ).filter(academic_year__is_active=True)[:1]
+                )
+            enrollment = active_enrollments[0] if active_enrollments else None
+            items.append({
+                "link_id": link.id,
+                "id": student.id,
+                "name": f"{student.last_name} {student.first_name}".strip(),
+                "matricule": student.matricule,
+                "relationship": link.relationship,
+                "relationship_label": link.get_relationship_display(),
+                "is_primary": link.is_primary,
+                "classroom": enrollment.classroom.name if enrollment else None,
+                "academic_year": (
+                    enrollment.academic_year.name if enrollment else None
+                ),
+            })
+        return items
 
     @extend_schema_field(serializers.DictField(allow_null=True))
     def get_linked_account(self, obj):

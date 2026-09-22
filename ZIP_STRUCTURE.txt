@@ -1,0 +1,7 @@
+Extract directly into:
+C:\Users\dell\school saas\
+
+Contains:
+frontend\src\modules\tenant\DashboardAnalytics.jsx
+
+No root-level src\ folder.

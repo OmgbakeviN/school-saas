@@ -3,6 +3,12 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 
+def student_photo_upload_to(instance, filename):
+    school_id = instance.school_id or "school"
+    student_id = instance.pk or "new"
+    return f"students/{school_id}/photos/student-{student_id}.webp"
+
+
 class Student(models.Model):
     class Gender(models.TextChoices):
         MALE = "MALE", "Masculin"
@@ -42,6 +48,12 @@ class Student(models.Model):
         default=Status.ACTIVE,
     )
     notes = models.TextField(blank=True)
+    photo = models.ImageField(
+        upload_to=student_photo_upload_to,
+        blank=True,
+        null=True,
+        max_length=500,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -56,6 +68,14 @@ class Student(models.Model):
 
     def __str__(self):
         return f"{self.last_name} {self.first_name} ({self.matricule})"
+
+    def delete(self, *args, **kwargs):
+        storage = self.photo.storage if self.photo else None
+        name = self.photo.name if self.photo else ""
+        result = super().delete(*args, **kwargs)
+        if storage and name:
+            storage.delete(name)
+        return result
 
 
 class Teacher(models.Model):

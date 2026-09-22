@@ -17,7 +17,6 @@ from apps.academics.models import (
     AcademicYear,
     Classroom,
     Cycle,
-    Section,
     LevelSubject,
     Subject,
 )
@@ -35,75 +34,6 @@ from .pdf import generate_report_card_pdf
 
 
 THREE = Decimal("0.001")
-
-REPORT_LANGUAGE_FR = "FR"
-REPORT_LANGUAGE_EN = "EN"
-
-
-def _section_language_code(enrollment):
-    section_language = enrollment.classroom.level.cycle.section.language
-    if section_language == Section.Language.ENGLISH:
-        return REPORT_LANGUAGE_EN
-    if section_language == Section.Language.FRENCH:
-        return REPORT_LANGUAGE_FR
-
-    school_language = enrollment.school.language_mode
-    if school_language == "ENGLISH":
-        return REPORT_LANGUAGE_EN
-    return REPORT_LANGUAGE_FR
-
-
-def resolve_report_card_language(*, enrollment, template=None):
-    """Resolve one immutable document language for this report card.
-
-    AUTO follows the student's academic section. For an explicitly bilingual
-    section, the school language is used when it is unambiguous; otherwise FR
-    is the deterministic fallback. A template may explicitly force FR or EN.
-    """
-    mode = (
-        template.language_mode
-        if template is not None
-        else ReportCardTemplate.LanguageMode.AUTO
-    )
-
-    if mode == ReportCardTemplate.LanguageMode.ENGLISH:
-        return REPORT_LANGUAGE_EN
-    if mode == ReportCardTemplate.LanguageMode.FRENCH:
-        return REPORT_LANGUAGE_FR
-    return _section_language_code(enrollment)
-
-
-def report_language_payload(*, enrollment, template=None, code=None):
-    code = code or resolve_report_card_language(
-        enrollment=enrollment,
-        template=template,
-    )
-    section_language = enrollment.classroom.level.cycle.section.language
-    mode = (
-        template.language_mode
-        if template is not None
-        else ReportCardTemplate.LanguageMode.AUTO
-    )
-
-    if mode != ReportCardTemplate.LanguageMode.AUTO:
-        source = "TEMPLATE"
-    elif section_language in {
-        Section.Language.FRENCH,
-        Section.Language.ENGLISH,
-    }:
-        source = "SECTION"
-    elif enrollment.school.language_mode in {"FRENCH", "ENGLISH"}:
-        source = "SCHOOL"
-    else:
-        source = "DEFAULT"
-
-    return {
-        "code": code,
-        "label": "English" if code == REPORT_LANGUAGE_EN else "Français",
-        "mode": mode,
-        "source": source,
-        "section_language": section_language,
-    }
 
 
 def q(value):
@@ -718,12 +648,13 @@ def class_teacher_name(*, enrollment):
     ).strip()
 
 
-def auto_appreciation(average, max_score, language=REPORT_LANGUAGE_FR):
+
+def auto_appreciation(average, max_score, language="FR"):
     if average is None or max_score in (None, 0):
         return ""
 
     ratio = Decimal(str(average)) / Decimal(str(max_score))
-    english = language == REPORT_LANGUAGE_EN
+    english = language == "EN"
 
     if ratio >= Decimal("0.90"):
         return "Excellent work." if english else "Excellent travail."
@@ -735,56 +666,72 @@ def auto_appreciation(average, max_score, language=REPORT_LANGUAGE_FR):
         return "Fairly good overall." if english else "Assez bon ensemble."
     if ratio >= Decimal("0.50"):
         return (
-            "Satisfactory results; keep working."
+            "Passable results; keep working."
             if english
             else "Résultats passables, efforts à poursuivre."
         )
     return (
-        "Insufficient results; greater effort is expected."
+        "Insufficient results; more effort is expected."
         if english
         else "Résultats insuffisants, davantage d'efforts sont attendus."
     )
 
 
-def auto_general_comment(average, max_score, language=REPORT_LANGUAGE_FR):
+def auto_general_comment(average, max_score, language="FR"):
     if average is None:
         return (
             "Incomplete results for this period."
-            if language == REPORT_LANGUAGE_EN
+            if language == "EN"
             else "Résultats incomplets pour cette période."
         )
     return auto_appreciation(average, max_score, language=language)
 
 
-def promotion_decision_label(enrollment, language=None):
-    """Return the end-of-year decision in the report-card language."""
-    language = language or _section_language_code(enrollment)
-    decision = enrollment.promotion_decision
+def promotion_decision_label(enrollment, language="FR"):
+    if language != "EN":
+        if enrollment.promotion_decision == Enrollment.PromotionDecision.PENDING:
+            return "Décision de fin d'année non arrêtée"
+        return enrollment.get_promotion_decision_display()
 
     labels = {
-        REPORT_LANGUAGE_FR: {
-            Enrollment.PromotionDecision.PENDING:
-                "Décision de fin d'année non arrêtée",
-            Enrollment.PromotionDecision.PROMOTED: "Admis / promu",
-            Enrollment.PromotionDecision.REPEATED: "Redouble",
-            Enrollment.PromotionDecision.GRADUATED: "Diplômé",
-            Enrollment.PromotionDecision.TRANSFERRED: "Transféré",
-            Enrollment.PromotionDecision.WITHDRAWN: "Retiré",
-        },
-        REPORT_LANGUAGE_EN: {
-            Enrollment.PromotionDecision.PENDING:
-                "End-of-year decision pending",
-            Enrollment.PromotionDecision.PROMOTED: "Promoted",
-            Enrollment.PromotionDecision.REPEATED: "Repeat",
-            Enrollment.PromotionDecision.GRADUATED: "Graduated",
-            Enrollment.PromotionDecision.TRANSFERRED: "Transferred",
-            Enrollment.PromotionDecision.WITHDRAWN: "Withdrawn",
-        },
+        Enrollment.PromotionDecision.PENDING: "Year-end decision pending",
+        Enrollment.PromotionDecision.PROMOTED: "Promoted",
+        Enrollment.PromotionDecision.REPEATED: "Repeat year",
+        Enrollment.PromotionDecision.GRADUATED: "Graduated",
+        Enrollment.PromotionDecision.TRANSFERRED: "Transferred",
+        Enrollment.PromotionDecision.WITHDRAWN: "Withdrawn",
     }
-    return labels.get(language, labels[REPORT_LANGUAGE_FR]).get(
-        decision,
+    return labels.get(
+        enrollment.promotion_decision,
         enrollment.get_promotion_decision_display(),
     )
+
+
+def report_language_payload(*, enrollment, template=None):
+    mode = (
+        template.language_mode
+        if template is not None
+        else ReportCardTemplate.LanguageMode.AUTO
+    )
+    section_language = enrollment.classroom.level.cycle.section.language
+
+    if mode == ReportCardTemplate.LanguageMode.ENGLISH:
+        code = "EN"
+        source = "TEMPLATE"
+    elif mode == ReportCardTemplate.LanguageMode.FRENCH:
+        code = "FR"
+        source = "TEMPLATE"
+    else:
+        code = "EN" if section_language == "ENGLISH" else "FR"
+        source = "SECTION"
+
+    return {
+        "code": code,
+        "label": "English" if code == "EN" else "Français",
+        "mode": mode,
+        "source": source,
+        "section_language": section_language,
+    }
 
 
 def _default_scale(school):
@@ -858,29 +805,6 @@ def report_content_payload(payload):
     content.pop("render", None)
     content.pop("preview", None)
 
-    # Backward-compatible comparison with STEP 06.2 snapshots. Before 06.2.2
-    # all generated PDFs were implicitly French and templates had no explicit
-    # language_mode. Normalizing these defaults avoids creating an unnecessary
-    # new version for an unchanged French bulletin immediately after upgrade.
-    language = content.get("language")
-    if isinstance(language, dict):
-        content["language"] = language.get("code") or REPORT_LANGUAGE_FR
-    elif not language:
-        content["language"] = REPORT_LANGUAGE_FR
-
-    template = content.get("template")
-    if isinstance(template, dict):
-        template.setdefault(
-            "language_mode",
-            ReportCardTemplate.LanguageMode.AUTO,
-        )
-
-    period = content.get("period")
-    if isinstance(period, dict):
-        # `kind` was added only to localize standard Term/Semester wording.
-        # It is technical metadata and must not create a version by itself.
-        period.pop("kind", None)
-
     return content
 
 
@@ -912,9 +836,10 @@ def fallback_template_payload():
         "key": ReportCardTemplate.TemplateKey.CLASSIC,
         "label": "Classique",
         "version": 1,
+        "language_mode": ReportCardTemplate.LanguageMode.AUTO,
+        "language_mode_label": "Automatique",
         "orientation": "PORTRAIT",
         "font_scale": "1.00",
-        "language_mode": ReportCardTemplate.LanguageMode.AUTO,
         "scope": "SCHOOL",
         "cycle_id": None,
         "cycle_name": None,
@@ -926,6 +851,7 @@ def fallback_template_payload():
             "show_subject_comments": True,
             "show_teacher_comment": True,
             "show_direction_comment": True,
+            "show_student_photo": False,
             "show_qr": True,
         },
     }
@@ -941,9 +867,10 @@ def template_to_payload(template):
         "key": template.template_key,
         "label": template.get_template_key_display(),
         "version": template.version,
+        "language_mode": template.language_mode,
+        "language_mode_label": template.get_language_mode_display(),
         "orientation": template.orientation,
         "font_scale": str(template.font_scale),
-        "language_mode": template.language_mode,
         "scope": "CYCLE" if template.cycle_id else "SCHOOL",
         "cycle_id": template.cycle_id,
         "cycle_name": (
@@ -959,6 +886,7 @@ def template_to_payload(template):
             "show_subject_comments": template.show_subject_comments,
             "show_teacher_comment": template.show_teacher_comment,
             "show_direction_comment": template.show_direction_comment,
+            "show_student_photo": template.show_student_photo,
             "show_qr": template.show_qr,
         },
     }
@@ -1011,34 +939,62 @@ def resolve_report_card_template(*, enrollment, template_id=None):
     )
 
 
-def attach_template_payload(
-    *,
-    payload,
-    enrollment,
-    template_id=None,
-    template=None,
-    document_language=None,
-):
-    if template is None:
-        template = resolve_report_card_template(
-            enrollment=enrollment,
-            template_id=template_id,
-        )
+def _student_photo_payload(student, *, include):
+    available = bool(student.photo)
+    data = {
+        "available": available,
+        "included": False,
+    }
+
+    if not include or not available:
+        return data
+
+    try:
+        with student.photo.open("rb") as handle:
+            digest = hashlib.sha256(handle.read()).hexdigest()
+    except Exception:
+        return data
+
+    data.update({
+        "included": True,
+        "sha256": digest,
+        "name": student.photo.name.rsplit("/", 1)[-1],
+    })
+    return data
+
+
+def _student_photo_path(enrollment, payload):
+    photo = (payload.get("student") or {}).get("photo") or {}
+    if not photo.get("included") or not enrollment.student.photo:
+        return None
+    try:
+        return enrollment.student.photo.path
+    except Exception:
+        return None
+
+
+def attach_template_payload(*, payload, enrollment, template_id=None):
+    template = resolve_report_card_template(
+        enrollment=enrollment,
+        template_id=template_id,
+    )
     if template_id and template is None:
         raise ValueError(
             "Le modèle de bulletin sélectionné est introuvable "
             "dans cet établissement."
         )
 
-    document_language = document_language or resolve_report_card_language(
-        enrollment=enrollment,
-        template=template,
-    )
     payload["template"] = template_to_payload(template)
     payload["language"] = report_language_payload(
         enrollment=enrollment,
         template=template,
-        code=document_language,
+    )
+    payload.setdefault("student", {})["photo"] = _student_photo_payload(
+        enrollment.student,
+        include=payload["template"]["options"].get(
+            "show_student_photo",
+            False,
+        ),
     )
     return template
 
@@ -1053,6 +1009,18 @@ def preview_verification_url(enrollment):
     return f"{scheme}://{host}/verify/report-card/preview-non-official/"
 
 
+
+def _language_code_for_enrollment(*, enrollment, template_id=None):
+    template = resolve_report_card_template(
+        enrollment=enrollment,
+        template_id=template_id,
+    )
+    return report_language_payload(
+        enrollment=enrollment,
+        template=template,
+    )["code"]
+
+
 def build_preview_report_card(
     *,
     enrollment,
@@ -1064,58 +1032,43 @@ def build_preview_report_card(
     subject_comments=None,
     template_id=None,
 ):
-    template = resolve_report_card_template(
+    language_code = _language_code_for_enrollment(
         enrollment=enrollment,
         template_id=template_id,
-    )
-    if template_id and template is None:
-        raise ValueError(
-            "Le modèle de bulletin sélectionné est introuvable "
-            "dans cet établissement."
-        )
-    document_language = resolve_report_card_language(
-        enrollment=enrollment,
-        template=template,
     )
 
     if report_type == ReportCardSnapshot.ReportType.PERIOD:
         payload = build_period_payload(
             enrollment=enrollment,
+            language_code=language_code,
             period=academic_period,
             version=0,
             publisher=publisher,
             general_comment=general_comment,
             teacher_comment=teacher_comment,
             subject_comments=subject_comments,
-            document_language=document_language,
         )
     else:
         payload = build_annual_payload(
             enrollment=enrollment,
+            language_code=language_code,
             version=0,
             publisher=publisher,
             general_comment=general_comment,
             teacher_comment=teacher_comment,
             subject_comments=subject_comments,
-            document_language=document_language,
         )
 
     attach_template_payload(
         payload=payload,
         enrollment=enrollment,
         template_id=template_id,
-        template=template,
-        document_language=document_language,
     )
 
     payload["preview"] = True
     payload["verification"] = {
         "url": preview_verification_url(enrollment),
-        "fingerprint": (
-            "PREVIEW"
-            if document_language == REPORT_LANGUAGE_EN
-            else "APERÇU"
-        ),
+        "fingerprint": "APERÇU",
     }
     payload = json_safe(payload)
 
@@ -1130,25 +1083,27 @@ def build_preview_report_card(
         payload=payload,
         verification_url=payload["verification"]["url"],
         logo_path=logo_path,
+        student_photo_path=_student_photo_path(enrollment, payload),
         return_meta=True,
     )
 
     return payload, render
 
-
 def build_period_payload(
     *,
     enrollment,
     period,
+    language_code=None,
     version,
     publisher,
     general_comment="",
     teacher_comment="",
     subject_comments=None,
-    document_language=None,
 ):
-    document_language = document_language or _section_language_code(enrollment)
     subject_comments = subject_comments or {}
+    language_code = language_code or _language_code_for_enrollment(
+        enrollment=enrollment,
+    )
     result = student_period_result(
         school=enrollment.school,
         enrollment=enrollment,
@@ -1168,7 +1123,7 @@ def build_period_payload(
             or auto_appreciation(
                 row["average"],
                 row["max_score"],
-                language=document_language,
+                language=language_code,
             )
         )
         subjects.append({
@@ -1191,7 +1146,6 @@ def build_period_payload(
             "id": period.id,
             "name": period.name,
             "order": period.order,
-            "kind": period.kind,
         },
         "student": {
             "id": enrollment.student_id,
@@ -1219,7 +1173,7 @@ def build_period_payload(
             "promotion_decision": enrollment.promotion_decision,
             "promotion_decision_label": promotion_decision_label(
                 enrollment,
-                language=document_language,
+                language=language_code,
             ),
         },
         "attendance": {
@@ -1232,7 +1186,7 @@ def build_period_payload(
                 or auto_general_comment(
                     result["overall_average"],
                     default_scale,
-                    language=document_language,
+                    language=language_code,
                 )
             ),
             "general": general_comment,
@@ -1251,14 +1205,16 @@ def build_annual_payload(
     *,
     enrollment,
     version,
+    language_code=None,
     publisher,
     general_comment="",
     teacher_comment="",
     subject_comments=None,
-    document_language=None,
 ):
-    document_language = document_language or _section_language_code(enrollment)
     subject_comments = subject_comments or {}
+    language_code = language_code or _language_code_for_enrollment(
+        enrollment=enrollment,
+    )
     result = student_annual_result(
         school=enrollment.school,
         enrollment=enrollment,
@@ -1277,7 +1233,7 @@ def build_annual_payload(
             or auto_appreciation(
                 row["average"],
                 row["max_score"],
-                language=document_language,
+                language=language_code,
             )
         )
         subjects.append({
@@ -1324,7 +1280,7 @@ def build_annual_payload(
             "promotion_decision": result["promotion_decision"],
             "promotion_decision_label": promotion_decision_label(
                 enrollment,
-                language=document_language,
+                language=language_code,
             ),
         },
         "attendance": {
@@ -1337,7 +1293,7 @@ def build_annual_payload(
                 or auto_general_comment(
                     result["overall_average"],
                     default_scale,
-                    language=document_language,
+                    language=language_code,
                 )
             ),
             "general": general_comment,
@@ -1377,12 +1333,6 @@ def publish_report_card(
     previous = queryset.order_by("-version").first()
     version = (previous.version + 1) if previous else 1
 
-    template = resolve_report_card_template(enrollment=enrollment)
-    document_language = resolve_report_card_language(
-        enrollment=enrollment,
-        template=template,
-    )
-
     if report_type == ReportCardSnapshot.ReportType.PERIOD:
         payload = build_period_payload(
             enrollment=enrollment,
@@ -1392,7 +1342,6 @@ def publish_report_card(
             general_comment=general_comment,
             teacher_comment=teacher_comment,
             subject_comments=subject_comments,
-            document_language=document_language,
         )
     else:
         payload = build_annual_payload(
@@ -1402,24 +1351,31 @@ def publish_report_card(
             general_comment=general_comment,
             teacher_comment=teacher_comment,
             subject_comments=subject_comments,
-            document_language=document_language,
         )
 
     attach_template_payload(
         payload=payload,
         enrollment=enrollment,
-        template=template,
-        document_language=document_language,
     )
 
     # No-op publication: keep the existing official version when the
     # meaningful content is strictly identical.
-    if (
-        previous
-        and report_content_hash(previous.payload)
-        == report_content_hash(payload)
-    ):
-        return previous, False
+    if previous:
+        previous_content = report_content_payload(previous.payload)
+        current_content = report_content_payload(payload)
+
+        # Compatibility with snapshots published before language metadata
+        # existed: adding language metadata alone must not create a new
+        # version for a French report. An English AUTO/TEMPLATE report must
+        # create a new version so the PDF is actually corrected to English.
+        if (
+            "language" not in previous_content
+            and (current_content.get("language") or {}).get("code") == "FR"
+        ):
+            current_content.pop("language", None)
+
+        if canonical_hash(previous_content) == canonical_hash(current_content):
+            return previous, False
 
     snapshot = ReportCardSnapshot(
         school=enrollment.school,
@@ -1468,6 +1424,7 @@ def publish_report_card(
         payload=payload,
         verification_url=verification_url,
         logo_path=logo_path,
+        student_photo_path=_student_photo_path(enrollment, payload),
         return_meta=True,
     )
 
@@ -1505,13 +1462,8 @@ def publish_report_card(
         if academic_period
         else "annual"
     )
-    filename_prefix = (
-        "report-card"
-        if document_language == REPORT_LANGUAGE_EN
-        else "bulletin"
-    )
     filename = (
-        f"{filename_prefix}-{enrollment.student.matricule}-"
+        f"bulletin-{enrollment.student.matricule}-"
         f"{scope}-v{version}.pdf"
     )
     snapshot.pdf_file.save(

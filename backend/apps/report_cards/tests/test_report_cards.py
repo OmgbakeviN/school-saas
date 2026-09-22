@@ -3,7 +3,9 @@ from decimal import Decimal
 from io import BytesIO
 import zipfile
 
+from django.core.files.base import ContentFile
 from django.test import TestCase
+from PIL import Image
 from rest_framework.test import APIClient
 
 from apps.accounts.models import SchoolMembership, User
@@ -266,6 +268,40 @@ class ReportCardTests(TestCase):
         self.assertNotIn("subjects", public.data)
         self.assertNotIn("overall_average", public.data)
 
+    def test_public_verification_page_shows_branded_web_results(self):
+        self.school.primary_color = "#123456"
+        self.school.secondary_color = "#654321"
+        self.school.save(
+            update_fields=["primary_color", "secondary_color"]
+        )
+
+        publish = self.client.post(
+            "/api/report-cards/publish/",
+            {
+                "enrollment": self.enrollment.id,
+                "report_type": "PERIOD",
+                "academic_period": self.period.id,
+            },
+            format="json",
+            **self.host,
+        )
+        self.assertEqual(publish.status_code, 201)
+
+        snapshot = ReportCardSnapshot.objects.get()
+        page = APIClient().get(
+            f"/verify/report-card/{snapshot.verification_token}/",
+            HTTP_HOST="localhost",
+        )
+
+        self.assertEqual(page.status_code, 200)
+        html = page.content.decode("utf-8")
+        self.assertIn(self.school.name, html)
+        self.assertIn("#123456", html)
+        self.assertIn("#654321", html)
+        self.assertIn("Résultats officiels", html)
+        self.assertIn("Math", html)
+        self.assertIn("15", html)
+
     def test_dense_ranking_uses_1_1_2(self):
         tied_student = Student.objects.create(
             school=self.school,
@@ -517,91 +553,25 @@ class ReportCardTests(TestCase):
             2,
         )
 
-    def test_auto_language_uses_english_section_for_pdf_payload(self):
-        self.section.language = Section.Language.ENGLISH
-        self.section.name = "English Section"
-        self.section.save(update_fields=("language", "name"))
 
+
+    def test_template_can_include_student_photo_and_photo_change_versions_report(self):
         template = ReportCardTemplate.objects.create(
             school=self.school,
             cycle=self.cycle,
-            name="Automatic bilingual template",
-            template_key=ReportCardTemplate.TemplateKey.MODERN,
-            language_mode=ReportCardTemplate.LanguageMode.AUTO,
+            name="Avec photo",
+            template_key=ReportCardTemplate.TemplateKey.CLASSIC,
             is_default=True,
+            show_student_photo=True,
         )
 
-        response = self.client.post(
-            "/api/report-cards/publish/",
-            {
-                "enrollment": self.enrollment.id,
-                "report_type": "PERIOD",
-                "academic_period": self.period.id,
-            },
-            format="json",
-            **self.host,
-        )
-
-        self.assertEqual(response.status_code, 201)
-        snapshot = ReportCardSnapshot.objects.get()
-        self.assertEqual(snapshot.payload["language"]["code"], "EN")
-        self.assertEqual(snapshot.payload["language"]["source"], "SECTION")
-        self.assertEqual(
-            snapshot.payload["template"]["language_mode"],
-            "AUTO",
-        )
-        self.assertEqual(
-            snapshot.payload["subjects"][0]["appreciation"],
-            "Good work.",
-        )
-        self.assertEqual(
-            snapshot.payload["comments"]["teacher"],
-            "Good work.",
-        )
-        self.assertEqual(
-            snapshot.payload["summary"]["promotion_decision_label"],
-            "End-of-year decision pending",
-        )
-
-    def test_template_can_force_french_for_english_section(self):
-        self.section.language = Section.Language.ENGLISH
-        self.section.save(update_fields=("language",))
-
-        ReportCardTemplate.objects.create(
-            school=self.school,
-            cycle=self.cycle,
-            name="Forced French",
-            language_mode=ReportCardTemplate.LanguageMode.FRENCH,
-            is_default=True,
-        )
-
-        response = self.client.post(
-            "/api/report-cards/publish/",
-            {
-                "enrollment": self.enrollment.id,
-                "report_type": "PERIOD",
-                "academic_period": self.period.id,
-            },
-            format="json",
-            **self.host,
-        )
-
-        self.assertEqual(response.status_code, 201)
-        snapshot = ReportCardSnapshot.objects.get()
-        self.assertEqual(snapshot.payload["language"]["code"], "FR")
-        self.assertEqual(snapshot.payload["language"]["source"], "TEMPLATE")
-        self.assertEqual(
-            snapshot.payload["subjects"][0]["appreciation"],
-            "Bon travail.",
-        )
-
-    def test_language_change_creates_new_report_card_version(self):
-        template = ReportCardTemplate.objects.create(
-            school=self.school,
-            cycle=self.cycle,
-            name="Language version test",
-            language_mode=ReportCardTemplate.LanguageMode.FRENCH,
-            is_default=True,
+        image = Image.new("RGB", (600, 800), "#9db7d8")
+        first_buffer = BytesIO()
+        image.save(first_buffer, format="WEBP", quality=80)
+        self.student.photo.save(
+            "student-photo.webp",
+            ContentFile(first_buffer.getvalue()),
+            save=True,
         )
 
         first = self.client.post(
@@ -615,10 +585,21 @@ class ReportCardTests(TestCase):
             **self.host,
         )
         self.assertEqual(first.status_code, 201)
+        snapshot = ReportCardSnapshot.objects.get(version=1)
+        self.assertTrue(snapshot.payload["template"]["options"]["show_student_photo"])
+        self.assertTrue(snapshot.payload["student"]["photo"]["included"])
+        self.assertEqual(snapshot.payload["render"]["page_count"], 1)
 
-        template.language_mode = ReportCardTemplate.LanguageMode.ENGLISH
-        template.version += 1
-        template.save()
+        second_image = Image.new("RGB", (600, 800), "#e1a56f")
+        second_buffer = BytesIO()
+        second_image.save(second_buffer, format="WEBP", quality=80)
+        if self.student.photo:
+            self.student.photo.delete(save=False)
+        self.student.photo.save(
+            "student-photo-2.webp",
+            ContentFile(second_buffer.getvalue()),
+            save=True,
+        )
 
         second = self.client.post(
             "/api/report-cards/publish/",
@@ -630,9 +611,6 @@ class ReportCardTests(TestCase):
             format="json",
             **self.host,
         )
-
         self.assertEqual(second.status_code, 201)
+        self.assertTrue(second.data["created_new_version"])
         self.assertEqual(second.data["snapshot"]["version"], 2)
-        latest = ReportCardSnapshot.objects.order_by("-version").first()
-        self.assertEqual(latest.payload["language"]["code"], "EN")
-

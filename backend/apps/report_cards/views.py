@@ -32,6 +32,8 @@ from .serializers import (
     ReportCardTemplateSerializer,
     SetDefaultTemplateSerializer,
 )
+from .public_web import render_public_report_card_html
+
 from .services import (
     build_options,
     can_view_full_class,
@@ -1035,132 +1037,19 @@ class PublicReportCardVerificationPageView(APIView):
             ReportCardSnapshot.objects.select_related(
                 "school",
                 "enrollment__student",
-                "enrollment__classroom",
+                "enrollment__classroom__level__cycle__section",
                 "academic_year",
                 "academic_period",
             ),
             verification_token=token,
         )
 
-        student = snapshot.enrollment.student
-        masked_name = (
-            f"{student.first_name} "
-            f"{student.last_name[:1].upper()}."
-        ).strip()
-        period = (
-            snapshot.academic_period.name
-            if snapshot.academic_period_id
-            else "Bulletin annuel"
+        html = render_public_report_card_html(
+            request=request,
+            snapshot=snapshot,
         )
-        fingerprint = snapshot.payload_sha256[:16].upper()
-
-        html = f"""<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Vérification bulletin - {escape(snapshot.school.name)}</title>
-  <style>
-    * {{ box-sizing: border-box; }}
-    body {{
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background: #f8fafc;
-      color: #0f172a;
-      font-family: Arial, Helvetica, sans-serif;
-      padding: 24px;
-    }}
-    .card {{
-      width: min(680px, 100%);
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 24px;
-      padding: 32px;
-      box-shadow: 0 20px 50px rgba(15, 23, 42, .08);
-    }}
-    .badge {{
-      display: inline-block;
-      border-radius: 999px;
-      padding: 8px 12px;
-      background: #ecfdf5;
-      color: #047857;
-      font-size: 13px;
-      font-weight: 700;
-    }}
-    h1 {{ margin: 18px 0 4px; font-size: 26px; }}
-    .muted {{ color: #64748b; }}
-    .grid {{
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-top: 24px;
-    }}
-    .item {{
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 14px;
-    }}
-    .label {{
-      color: #94a3b8;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-    }}
-    .value {{ margin-top: 5px; font-weight: 700; }}
-    .fingerprint {{
-      margin-top: 22px;
-      padding: 14px;
-      border-radius: 14px;
-      background: #f8fafc;
-      font-family: monospace;
-      font-size: 13px;
-    }}
-    @media (max-width: 560px) {{
-      .grid {{ grid-template-columns: 1fr; }}
-      .card {{ padding: 22px; }}
-    }}
-  </style>
-</head>
-<body>
-  <main class="card">
-    <span class="badge">✓ Bulletin authentique</span>
-    <h1>{escape(snapshot.school.name)}</h1>
-    <div class="muted">Document officiel enregistré dans BE WISE School.</div>
-
-    <div class="grid">
-      <div class="item">
-        <div class="label">Élève</div>
-        <div class="value">{escape(masked_name)}</div>
-      </div>
-      <div class="item">
-        <div class="label">Classe</div>
-        <div class="value">{escape(snapshot.enrollment.classroom.name)}</div>
-      </div>
-      <div class="item">
-        <div class="label">Année scolaire</div>
-        <div class="value">{escape(snapshot.academic_year.name)}</div>
-      </div>
-      <div class="item">
-        <div class="label">Période</div>
-        <div class="value">{escape(period)}</div>
-      </div>
-      <div class="item">
-        <div class="label">Version</div>
-        <div class="value">v{snapshot.version}</div>
-      </div>
-      <div class="item">
-        <div class="label">Publié le</div>
-        <div class="value">{snapshot.published_at:%d/%m/%Y %H:%M}</div>
-      </div>
-    </div>
-
-    <div class="fingerprint">
-      Empreinte : {fingerprint}
-    </div>
-  </main>
-</body>
-</html>"""
-        return HttpResponse(html, content_type="text/html; charset=utf-8")
+        return HttpResponse(
+            html,
+            content_type="text/html; charset=utf-8",
+        )
 

@@ -30,6 +30,10 @@ class ReportCardTemplateSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     orientation = serializers.CharField(read_only=True)
+    language_mode_label = serializers.CharField(
+        source="get_language_mode_display",
+        read_only=True,
+    )
 
     class Meta:
         model = ReportCardTemplate
@@ -44,6 +48,7 @@ class ReportCardTemplateSerializer(serializers.ModelSerializer):
             "version",
             "is_default",
             "language_mode",
+            "language_mode_label",
             "show_rank",
             "show_class_average",
             "show_effective",
@@ -51,6 +56,7 @@ class ReportCardTemplateSerializer(serializers.ModelSerializer):
             "show_subject_comments",
             "show_teacher_comment",
             "show_direction_comment",
+            "show_student_photo",
             "show_qr",
             "font_scale",
             "created_at",

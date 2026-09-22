@@ -294,3 +294,47 @@ class DashboardStatisticsTests(APITestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_direction_can_download_dashboard_statistics_pdf(self):
+        self._login("director-stats@example.com")
+
+        response = self.client.get(
+            "/api/tenant/dashboard/statistics.pdf?language=fr",
+            HTTP_HOST=self.host,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/pdf",
+        )
+        self.assertTrue(response.content.startswith(b"%PDF"))
+        self.assertIn(
+            "attachment;",
+            response["Content-Disposition"],
+        )
+
+    def test_direction_can_download_classroom_statistics_pdf(self):
+        self._login("director-stats@example.com")
+
+        response = self.client.get(
+            f"/api/tenant/dashboard/classrooms/{self.class_a.id}/statistics.pdf?language=en",
+            HTTP_HOST=self.host,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/pdf",
+        )
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_teacher_cannot_download_unassigned_classroom_statistics_pdf(self):
+        self._login("teacher-stats@example.com")
+
+        response = self.client.get(
+            f"/api/tenant/dashboard/classrooms/{self.class_b.id}/statistics.pdf",
+            HTTP_HOST=self.host,
+        )
+
+        self.assertEqual(response.status_code, 403)
+

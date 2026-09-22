@@ -1,6 +1,8 @@
 from django.urls import path
 from .views import (
     classroom_statistics,
+    classroom_statistics_pdf,
+    dashboard_statistics_pdf,
     create_school,
     public_context,
     school_member_detail,
@@ -14,9 +16,19 @@ urlpatterns = [
     path("public/onboarding/schools/", create_school, name="create-school"),
     path("tenant/dashboard/", tenant_dashboard, name="tenant-dashboard"),
     path(
+        "tenant/dashboard/statistics.pdf",
+        dashboard_statistics_pdf,
+        name="tenant-dashboard-statistics-pdf",
+    ),
+    path(
         "tenant/dashboard/classrooms/<int:classroom_id>/statistics/",
         classroom_statistics,
         name="tenant-dashboard-classroom-statistics",
+    ),
+    path(
+        "tenant/dashboard/classrooms/<int:classroom_id>/statistics.pdf",
+        classroom_statistics_pdf,
+        name="tenant-dashboard-classroom-statistics-pdf",
     ),
     path("tenant/settings/", school_settings, name="school-settings"),
     path("tenant/members/", school_members, name="school-members"),

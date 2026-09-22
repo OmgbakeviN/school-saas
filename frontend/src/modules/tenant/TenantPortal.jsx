@@ -458,6 +458,7 @@ export default function TenantPortal({ tenantSlug, initialSchool = null }) {
 
           {section === "people" && canManagePeople && (
             <PeopleWorkspace
+              school={dashboard.school}
               onCountsChanged={(counts) =>
                 setDashboard((current) => ({
                   ...current,

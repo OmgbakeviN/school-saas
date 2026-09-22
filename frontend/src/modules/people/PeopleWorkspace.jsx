@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BookUser,
+  Eye,
+  Filter,
   GraduationCap,
   Link2,
   Loader2,
@@ -21,6 +23,7 @@ import GuardianLinkDialog from "./GuardianLinkDialog";
 import StudentDialog from "./StudentDialog";
 import TeacherDialog from "./TeacherDialog";
 import PeopleOperationsPanel from "./PeopleOperationsPanel";
+import PersonProfileDialog from "./PersonProfileDialog";
 
 const inputClass =
   "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100";
@@ -55,6 +58,7 @@ function StatusBadge({ children }) {
 }
 
 export default function PeopleWorkspace({
+  school,
   onCountsChanged,
 }) {
   const { t } = useI18n();
@@ -64,6 +68,17 @@ export default function PeopleWorkspace({
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [studentFilters, setStudentFilters] = useState({
+    classroom: "",
+    status: "",
+    gender: "",
+    photo: "",
+  });
+  const [profileDialog, setProfileDialog] = useState({
+    open: false,
+    type: null,
+    item: null,
+  });
 
   const [summary, setSummary] = useState({
     students: 0,
@@ -156,21 +171,46 @@ export default function PeopleWorkspace({
 
   const filteredStudents = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return students;
 
-    return students.filter((student) =>
-      [
+    return students.filter((student) => {
+      const searchable = [
         student.first_name,
         student.last_name,
         student.matricule,
+        student.phone,
+        student.email,
         student.current_enrollment?.classroom_name,
+        ...(student.guardians || []).flatMap((guardian) => [
+          guardian.name,
+          guardian.phone,
+        ]),
       ]
         .filter(Boolean)
         .join(" ")
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [students, search]);
+        .toLowerCase();
+
+      if (q && !searchable.includes(q)) return false;
+      if (studentFilters.classroom && String(student.current_enrollment?.classroom || "") !== studentFilters.classroom) return false;
+      if (studentFilters.status && student.status !== studentFilters.status) return false;
+      if (studentFilters.gender && student.gender !== studentFilters.gender) return false;
+      if (studentFilters.photo === "WITH" && !student.photo_url) return false;
+      if (studentFilters.photo === "WITHOUT" && student.photo_url) return false;
+      return true;
+    });
+  }, [students, search, studentFilters]);
+
+  const studentClassOptions = useMemo(() => {
+    const map = new Map();
+    students.forEach((student) => {
+      const enrollment = student.current_enrollment;
+      if (enrollment?.classroom) {
+        map.set(String(enrollment.classroom), enrollment.classroom_name);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [students]);
 
   const filteredTeachers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -199,6 +239,13 @@ export default function PeopleWorkspace({
         guardian.last_name,
         guardian.phone,
         guardian.email,
+        guardian.occupation,
+        ...(guardian.children || []).flatMap((child) => [
+          child.name,
+          child.matricule,
+          child.classroom,
+          child.relationship_label,
+        ]),
       ]
         .filter(Boolean)
         .join(" ")
@@ -363,6 +410,71 @@ export default function PeopleWorkspace({
             </button>
           </div>
 
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <Filter size={16} className="text-slate-400" />
+              {t("people.students.filters.title")}
+              <span className="ml-auto text-xs font-normal text-slate-400">
+                {filteredStudents.length} / {students.length}
+              </span>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <select
+                className={inputClass}
+                value={studentFilters.classroom}
+                onChange={(event) => setStudentFilters({ ...studentFilters, classroom: event.target.value })}
+              >
+                <option value="">{t("people.students.filters.allClasses")}</option>
+                {studentClassOptions.map((classroom) => (
+                  <option key={classroom.id} value={classroom.id}>{classroom.name}</option>
+                ))}
+              </select>
+
+              <select
+                className={inputClass}
+                value={studentFilters.status}
+                onChange={(event) => setStudentFilters({ ...studentFilters, status: event.target.value })}
+              >
+                <option value="">{t("people.students.filters.allStatuses")}</option>
+                <option value="ACTIVE">{t("people.status.active")}</option>
+                <option value="INACTIVE">{t("people.status.inactive")}</option>
+                <option value="GRADUATED">{t("people.status.graduated")}</option>
+                <option value="TRANSFERRED">{t("people.status.transferred")}</option>
+                <option value="WITHDRAWN">{t("people.status.withdrawn")}</option>
+              </select>
+
+              <select
+                className={inputClass}
+                value={studentFilters.gender}
+                onChange={(event) => setStudentFilters({ ...studentFilters, gender: event.target.value })}
+              >
+                <option value="">{t("people.students.filters.allGenders")}</option>
+                <option value="MALE">{t("people.gender.male")}</option>
+                <option value="FEMALE">{t("people.gender.female")}</option>
+                <option value="OTHER">{t("people.gender.other")}</option>
+              </select>
+
+              <div className="flex gap-2">
+                <select
+                  className={inputClass}
+                  value={studentFilters.photo}
+                  onChange={(event) => setStudentFilters({ ...studentFilters, photo: event.target.value })}
+                >
+                  <option value="">{t("people.students.filters.allPhotos")}</option>
+                  <option value="WITH">{t("people.students.filters.withPhoto")}</option>
+                  <option value="WITHOUT">{t("people.students.filters.withoutPhoto")}</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setStudentFilters({ classroom: "", status: "", gender: "", photo: "" })}
+                  className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-500 hover:bg-slate-50"
+                >
+                  {t("people.students.filters.reset")}
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="mt-5 space-y-3">
             {!filteredStudents.length && (
               <EmptyState>{t("people.students.empty")}</EmptyState>
@@ -373,10 +485,18 @@ export default function PeopleWorkspace({
                 key={student.id}
                 className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 md:flex-row md:items-center"
               >
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-100 font-semibold text-slate-600">
-                  {(student.first_name?.[0] || "")}
-                  {(student.last_name?.[0] || "")}
-                </div>
+                {student.photo_url ? (
+                  <img
+                    src={student.photo_url}
+                    alt={`${student.last_name} ${student.first_name}`}
+                    className="h-11 w-11 shrink-0 rounded-2xl border border-slate-200 object-cover"
+                  />
+                ) : (
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-100 font-semibold text-slate-600">
+                    {(student.first_name?.[0] || "")}
+                    {(student.last_name?.[0] || "")}
+                  </div>
+                )}
 
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">
@@ -388,11 +508,30 @@ export default function PeopleWorkspace({
                       ? ` • ${student.current_enrollment.classroom_name} • ${student.current_enrollment.academic_year_name}`
                       : ` • ${t("people.students.notEnrolled")}`}
                   </div>
+                  {!!student.guardians?.length && (
+                    <div className="mt-1 text-xs text-slate-400">
+                      {t("people.profile.guardians")}: {student.guardians
+                        .slice(0, 2)
+                        .map((guardian) => `${guardian.name} (${guardian.relationship_label})`)
+                        .join(" • ")}
+                      {student.guardians.length > 2 ? ` +${student.guardians.length - 2}` : ""}
+                    </div>
+                  )}
                 </div>
 
                 <StatusBadge>{student.status}</StatusBadge>
 
                 <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setProfileDialog({ open: true, type: "student", item: student })
+                    }
+                    title={t("people.profile.view")}
+                    className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <Eye size={15} />
+                  </button>
                   <button
                     type="button"
                     onClick={() =>
@@ -467,6 +606,16 @@ export default function PeopleWorkspace({
                   <button
                     type="button"
                     onClick={() =>
+                      setProfileDialog({ open: true, type: "teacher", item: teacher })
+                    }
+                    title={t("people.profile.view")}
+                    className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <Eye size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
                       setTeacherDialog({ open: true, item: teacher })
                     }
                     className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
@@ -531,9 +680,37 @@ export default function PeopleWorkspace({
                       {guardian.email ? ` • ${guardian.email}` : ""}
                       {` • ${guardian.children_count || 0} ${t("people.guardians.children")}`}
                     </div>
+                    {!!guardian.children?.length && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {guardian.children.slice(0, 3).map((child) => (
+                          <span
+                            key={child.link_id}
+                            className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600"
+                          >
+                            {child.name} • {child.relationship_label}
+                            {child.classroom ? ` • ${child.classroom}` : ""}
+                          </span>
+                        ))}
+                        {guardian.children.length > 3 && (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-500">
+                            +{guardian.children.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setProfileDialog({ open: true, type: "guardian", item: guardian })
+                      }
+                      title={t("people.profile.view")}
+                      className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    >
+                      <Eye size={15} />
+                    </button>
                     <button
                       type="button"
                       onClick={() =>
@@ -713,6 +890,14 @@ export default function PeopleWorkspace({
           }}
         />
       )}
+
+      <PersonProfileDialog
+        open={profileDialog.open}
+        type={profileDialog.type}
+        person={profileDialog.item}
+        school={school}
+        onClose={() => setProfileDialog({ open: false, type: null, item: null })}
+      />
 
       <StudentDialog
         open={studentDialog.open}

@@ -92,7 +92,10 @@ const fr = {
       academicYear: "Année scolaire",
       currentPeriod: "Période courante",
       teamMembers: "Membres actifs",
-      generatedAt: "Statistiques actualisées"
+      generatedAt: "Statistiques actualisées",
+      downloadPdf: "Télécharger les statistiques (PDF)",
+      downloadingPdf: "Génération du PDF…",
+      pdfDownloadError: "Impossible de télécharger les statistiques en PDF."
     },
 
     classDetail: {
@@ -335,6 +338,20 @@ people: {
     nationality: "Nationalité",
     admissionDate: "Date d'admission",
     notEnrolled: "pas encore inscrit pour l'année active",
+    photo: "Photo de l'élève",
+    photoHelp: "Optionnelle. Les images JPG, PNG ou WEBP sont automatiquement redimensionnées et compressées en WEBP (max. 900 px) pour rester légères.",
+    choosePhoto: "Choisir une photo",
+    removePhoto: "Retirer la photo",
+    filters: {
+      title: "Filtrer les élèves",
+      allClasses: "Toutes les classes",
+      allStatuses: "Tous les statuts",
+      allGenders: "Tous les sexes",
+      allPhotos: "Toutes les photos",
+      withPhoto: "Avec photo",
+      withoutPhoto: "Sans photo",
+      reset: "Réinitialiser",
+    },
   },
   teachers: {
     title: "Enseignants",
@@ -373,6 +390,18 @@ people: {
     linksTitle: "Liens parent ↔ élève",
     noLinks: "Aucun lien parent-élève configuré.",
     primaryShort: "contact principal",
+  },
+  profile: {
+    title: "Profil de la personne",
+    view: "Voir le profil",
+    currentEnrollment: "Inscription actuelle",
+    guardians: "Parents / tuteurs",
+    noGuardians: "Aucun parent ou tuteur lié à cet élève.",
+    children: "Enfants liés",
+    noChildren: "Aucun élève lié à ce parent/tuteur.",
+    loginAccount: "Compte de connexion",
+    noLoginAccount: "Aucun compte de connexion lié.",
+    types: { student: "Élève", teacher: "Enseignant", guardian: "Parent / tuteur" },
   },
   relationship: {
     father: "Père",
@@ -421,6 +450,7 @@ people: {
     load: "Impossible de charger les personnes et inscriptions.",
     delete: "Impossible de supprimer cet élément.",
     saveStudent: "Impossible d'enregistrer l'élève.",
+    removePhoto: "Impossible de retirer la photo de l'élève.",
     saveTeacher: "Impossible d'enregistrer l'enseignant.",
     saveGuardian: "Impossible d'enregistrer le parent/tuteur.",
     linkGuardian: "Impossible de créer ce lien.",
@@ -886,6 +916,7 @@ people: {
         subjectComments: "Afficher les appréciations par matière",
         teacherComment: "Afficher l'appréciation du titulaire",
         directionComment: "Afficher l'appréciation de la direction",
+        studentPhoto: "Afficher la photo de l'élève",
         qr: "Afficher le QR de vérification",
       },
       messages: {

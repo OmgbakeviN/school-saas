@@ -92,7 +92,10 @@ const en = {
       academicYear: "Academic year",
       currentPeriod: "Current period",
       teamMembers: "Active members",
-      generatedAt: "Statistics refreshed"
+      generatedAt: "Statistics refreshed",
+      downloadPdf: "Download statistics (PDF)",
+      downloadingPdf: "Generating PDF…",
+      pdfDownloadError: "Unable to download statistics as PDF."
     },
 
     classDetail: {
@@ -142,7 +145,10 @@ const en = {
       financeHelp: "Expected tuition, collections and balances for this class only.",
       collectionRate: "Collection rate",
       tuitionAccounts: "{count} tuition account(s)",
-      noRoleData: "No additional statistics are available for your role."
+      noRoleData: "No additional statistics are available for your role.",
+      downloadPdf: "Download PDF",
+      downloadingPdf: "Generating…",
+      pdfDownloadError: "Unable to download class statistics as PDF."
     }
   },
   academics: {
@@ -334,6 +340,20 @@ people: {
     nationality: "Nationality",
     admissionDate: "Admission date",
     notEnrolled: "not yet enrolled for the active year",
+    photo: "Student photo",
+    photoHelp: "Optional. JPG, PNG or WEBP images are automatically resized and compressed to WEBP (max. 900 px) to keep files lightweight.",
+    choosePhoto: "Choose photo",
+    removePhoto: "Remove photo",
+    filters: {
+      title: "Filter students",
+      allClasses: "All classes",
+      allStatuses: "All statuses",
+      allGenders: "All genders",
+      allPhotos: "All photos",
+      withPhoto: "With photo",
+      withoutPhoto: "Without photo",
+      reset: "Reset",
+    },
   },
   teachers: {
     title: "Teachers",
@@ -372,6 +392,18 @@ people: {
     linksTitle: "Parent ↔ student links",
     noLinks: "No parent-student link configured.",
     primaryShort: "primary contact",
+  },
+  profile: {
+    title: "Person profile",
+    view: "View profile",
+    currentEnrollment: "Current enrollment",
+    guardians: "Parents / guardians",
+    noGuardians: "No parent or guardian is linked to this student.",
+    children: "Linked children",
+    noChildren: "No student is linked to this parent/guardian.",
+    loginAccount: "Login account",
+    noLoginAccount: "No login account linked.",
+    types: { student: "Student", teacher: "Teacher", guardian: "Parent / guardian" },
   },
   relationship: {
     father: "Father",
@@ -420,6 +452,7 @@ people: {
     load: "Unable to load people and enrollments.",
     delete: "Unable to delete this item.",
     saveStudent: "Unable to save the student.",
+    removePhoto: "Unable to remove the student photo.",
     saveTeacher: "Unable to save the teacher.",
     saveGuardian: "Unable to save the parent/guardian.",
     linkGuardian: "Unable to create this link.",
@@ -885,6 +918,7 @@ people: {
         subjectComments: "Show subject comments",
         teacherComment: "Show class-teacher comment",
         directionComment: "Show management comment",
+        studentPhoto: "Show student photo",
         qr: "Show verification QR",
       },
       messages: {
