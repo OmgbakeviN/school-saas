@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "apps.assessments",
     "apps.report_cards",
     "apps.finance",
+    "apps.whatsapp_ai",
 ]
 
 MIDDLEWARE = [
@@ -161,6 +162,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "Assessments", "description": "Évaluations, saisie sécurisée des notes, validation et résultats."},
         {"name": "Report Cards", "description": "Exploration des résultats, bulletins PDF, versions et vérification publique."},
         {"name": "Finance", "description": "Plans de pension, tranches, comptes élèves, paiements et reçus."},
+        {"name": "WhatsApp AI", "description": "Outils internes sécurisés pour l’agent conversationnel WhatsApp."},
     ],
 }
 
@@ -174,3 +176,15 @@ USE_X_FORWARDED_HOST = True
 SESSION_COOKIE_SECURE = not DEBUG
 
 CSRF_COOKIE_SECURE = not DEBUG
+
+
+# WhatsApp / n8n AI agent.
+WHATSAPP_AGENT_API_KEY = os.getenv("WHATSAPP_AGENT_API_KEY", "").strip()
+EVOLUTION_API_URL = os.getenv("EVOLUTION_API_URL", "").strip().rstrip("/")
+EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY", "").strip()
+EVOLUTION_API_TIMEOUT = int(os.getenv("EVOLUTION_API_TIMEOUT", "30"))
+WHATSAPP_DEFAULT_COUNTRY_CODE = os.getenv("WHATSAPP_DEFAULT_COUNTRY_CODE", "237").strip()
+WHATSAPP_AI_DRY_RUN = os.getenv(
+    "WHATSAPP_AI_DRY_RUN",
+    "True" if DEBUG else "False",
+).lower() == "true"

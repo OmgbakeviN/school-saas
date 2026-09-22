@@ -1,0 +1,342 @@
+{
+  "name": "BE WISE - WhatsApp Parent Documents AI",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bewise-whatsapp-parent-documents",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -900,
+        0
+      ],
+      "id": "1dfe7ddf-a621-4b97-8e61-479347999001",
+      "name": "Evolution Incoming Webhook",
+      "webhookId": "bewise-whatsapp-parent-documents"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst data = body.data ?? {};\nconst key = data.key ?? {};\n\nif (key.fromMe === true) return [];\n\nconst remoteJid = key.remoteJid ?? data.remoteJid ?? body.remoteJid ?? '';\nif (!remoteJid || String(remoteJid).includes('@g.us')) return [];\n\nconst message = data.message ?? {};\nconst text = message.conversation\n  ?? message.extendedTextMessage?.text\n  ?? message.imageMessage?.caption\n  ?? message.videoMessage?.caption\n  ?? data.message?.text\n  ?? '';\n\nif (!String(text).trim()) return [];\n\nconst instanceName = body.instance ?? body.instanceName ?? data.instance ?? '';\nconst phone = String(remoteJid).split('@')[0].replace(/\\D/g, '');\n\nif (!instanceName || !phone) return [];\n\nreturn [{ json: { instance_name: String(instanceName), phone, user_message: String(text).trim(), remote_jid: String(remoteJid), event: body.event ?? '' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        0
+      ],
+      "id": "2dfe7ddf-a621-4b97-8e61-479347999002",
+      "name": "Normalize Evolution Message"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BEWISE_API_BASE.replace(/\\/$/, '') + '/api/whatsapp-ai/context/' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Bewise-Agent-Key",
+              "value": "={{ $env.BEWISE_AGENT_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ instance_name: $json.instance_name, phone: $json.phone, message_text: $json.user_message }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -450,
+        0
+      ],
+      "id": "3dfe7ddf-a621-4b97-8e61-479347999003",
+      "name": "Load Authorized Parent Context"
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $json;\nconst incoming = $('Normalize Evolution Message').first().json;\nreturn [{ json: { ...incoming, context, session_key: context.session_key ?? `${incoming.instance_name}:${incoming.phone}`, agent_prompt: `USER MESSAGE:\n${incoming.user_message}\n\nAUTHORIZED CONTEXT JSON:\n${JSON.stringify(context)}` } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        0
+      ],
+      "id": "4dfe7ddf-a621-4b97-8e61-479347999004",
+      "name": "Prepare Agent Input"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.agent_prompt }}",
+        "options": {
+          "systemMessage": "You are BE WISE Parent Documents Assistant, a secure WhatsApp assistant for a school.\n\nSCOPE — you have ONLY two document capabilities:\n1. Send an already-published period/term report card PDF.\n2. Send the current tuition invoice/statement PDF.\n\nSECURITY RULES:\n- The AUTHORIZED CONTEXT JSON in the prompt is the only source of truth about the school, guardian, children, permissions, and available documents.\n- Never invent a child, student ID, period, report card, invoice, permission, amount, grade, or payment.\n- Never reveal internal IDs to the user.\n- If authorized=false, do not call any tool. Politely say that the WhatsApp number is not authorized and ask the person to contact the school administration.\n- A report card may only be sent for a child listed in children where permissions.report_cards=true and where the requested period appears in available_report_cards.\n- A tuition invoice may only be sent for a child listed in children where permissions.finance=true and tuition_invoice_available=true.\n- Never use a student_id that is not present in the current authorized context.\n- Do not claim a PDF was sent unless the corresponding tool returns sent=true.\n- Tool errors must be explained simply without exposing technical details.\n- Do not provide grades, balances, payment data, or private data in plain text. This MVP sends documents only.\n- If the user asks for anything outside these two capabilities, explain that for now you can only provide term report cards and tuition invoices.\n\nCONVERSATION RULES:\n- Reply in the user's language. Use the guardian preferred_language as a default when the message is ambiguous.\n- Be concise and natural for WhatsApp.\n- If there are multiple children and the request is ambiguous, ask which child.\n- If a report-card request does not identify the term/period and more than one period is available, ask which period. If only one is available, you may use it.\n- Understand normal wording such as “bulletin du 1er trimestre”, “bulletin trimestre 2”, “first term report card”, “send his report”, “facture pension”, “tuition invoice”, and follow-up pronouns using conversation memory.\n- When calling send_term_report_card, pass the exact authorized student_id and a period value that matches the requested available period (name or order).\n- When calling send_tuition_invoice, pass the exact authorized student_id.\n- After a successful tool call, confirm briefly that the PDF was sent in the WhatsApp conversation.\n",
+          "returnIntermediateSteps": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        40,
+        0
+      ],
+      "id": "5dfe7ddf-a621-4b97-8e61-479347999005",
+      "name": "BE WISE Parent Documents Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.4-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5.4-mini"
+        },
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -20,
+        250
+      ],
+      "id": "6dfe7ddf-a621-4b97-8e61-479347999006",
+      "name": "OpenAI Chat Model"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Prepare Agent Input').first().json.session_key }}",
+        "contextWindowLength": 12
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        160,
+        250
+      ],
+      "id": "7dfe7ddf-a621-4b97-8e61-479347999007",
+      "name": "Conversation Memory"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BEWISE_API_BASE.replace(/\\/$/, '') + '/api/whatsapp-ai/tools/send-term-report-card/' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Bewise-Agent-Key",
+              "value": "={{ $env.BEWISE_AGENT_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ instance_name: $('Prepare Agent Input').first().json.instance_name, phone: $('Prepare Agent Input').first().json.phone, student_id: $fromAI('student_id', 'Numeric student_id from the AUTHORIZED CONTEXT for the child whose published period report card the user explicitly requested. Never invent an ID.', 'number'), period: $fromAI('period', 'Requested published academic period. Use the exact period name or order from available_report_cards. If ambiguous, ask the user before calling this tool.', 'string') }) }}",
+        "options": {},
+        "toolDescription": "Send an already-published period/term report card PDF to the verified WhatsApp parent. Use only when the user explicitly asks for a report card and only with a student_id and period present in the authorized context. This tool sends the document as a side effect."
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        350,
+        250
+      ],
+      "id": "8dfe7ddf-a621-4b97-8e61-479347999008",
+      "name": "send_term_report_card"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BEWISE_API_BASE.replace(/\\/$/, '') + '/api/whatsapp-ai/tools/send-tuition-invoice/' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Bewise-Agent-Key",
+              "value": "={{ $env.BEWISE_AGENT_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ instance_name: $('Prepare Agent Input').first().json.instance_name, phone: $('Prepare Agent Input').first().json.phone, student_id: $fromAI('student_id', 'Numeric student_id from the AUTHORIZED CONTEXT for the child whose tuition invoice the user explicitly requested. Never invent an ID.', 'number') }) }}",
+        "options": {},
+        "toolDescription": "Generate the current tuition invoice/statement PDF for an authorized child and send it to the verified WhatsApp parent. Use only when the user explicitly asks for the tuition invoice/fee bill and permissions.finance=true with tuition_invoice_available=true. This tool sends the document as a side effect."
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        570,
+        250
+      ],
+      "id": "9dfe7ddf-a621-4b97-8e61-479347999009",
+      "name": "send_tuition_invoice"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BEWISE_API_BASE.replace(/\\/$/, '') + '/api/whatsapp-ai/send-text/' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Bewise-Agent-Key",
+              "value": "={{ $env.BEWISE_AGENT_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ instance_name: $('Prepare Agent Input').first().json.instance_name, phone: $('Prepare Agent Input').first().json.phone, text: $json.output }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        350,
+        0
+      ],
+      "id": "adfe7ddf-a621-4b97-8e61-479347999010",
+      "name": "Send Agent Reply"
+    },
+    {
+      "parameters": {
+        "content": "## BE WISE Parent Documents AI\n\nBefore activating:\n1. Set n8n env vars `BEWISE_API_BASE` and `BEWISE_AGENT_KEY`.\n2. Open **OpenAI Chat Model** and select/create your OpenAI credential.\n3. Configure Evolution API `MESSAGES_UPSERT` webhook to this workflow's production webhook URL.\n4. Keep the backend tool API private behind `X-Bewise-Agent-Key`.\n\nThe agent can only send period report cards and tuition invoices.",
+        "height": 330,
+        "width": 430
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        -390
+      ],
+      "id": "bdfe7ddf-a621-4b97-8e61-479347999011",
+      "name": "Setup Notes"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Evolution Incoming Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Evolution Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Evolution Message": {
+      "main": [
+        [
+          {
+            "node": "Load Authorized Parent Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Authorized Parent Context": {
+      "main": [
+        [
+          {
+            "node": "Prepare Agent Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Agent Input": {
+      "main": [
+        [
+          {
+            "node": "BE WISE Parent Documents Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "BE WISE Parent Documents Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "BE WISE Parent Documents Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send_term_report_card": {
+      "ai_tool": [
+        [
+          {
+            "node": "BE WISE Parent Documents Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send_tuition_invoice": {
+      "ai_tool": [
+        [
+          {
+            "node": "BE WISE Parent Documents Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BE WISE Parent Documents Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Agent Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "479e6d47-03e7-41bc-b5cb-325c1c883192",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

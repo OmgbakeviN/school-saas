@@ -19,6 +19,7 @@ urlpatterns = [
     path("api/assessments/", include("apps.assessments.urls")),
     path("api/report-cards/", include("apps.report_cards.urls")),
     path("api/finance/", include("apps.finance.urls")),
+    path("api/whatsapp-ai/", include("apps.whatsapp_ai.urls")),
     path("api/public/report-cards/", include("apps.report_cards.public_urls")),
     path("verify/report-card/", include("apps.report_cards.verify_urls")),
 ]

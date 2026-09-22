@@ -465,3 +465,45 @@ report_cards.0003_reportcardtemplate_language_mode
 - [x] documentation mise à jour
 
 Aucune migration.
+
+---
+
+## STEP 08.1 — Agent WhatsApp IA : bulletin de période + facture de pension
+
+- [x] nouvelle app Django `whatsapp_ai`
+- [x] connexion Evolution API par établissement
+- [x] abstraction provider WhatsApp
+- [x] envoi texte Evolution
+- [x] envoi document PDF Evolution
+- [x] mode local `WHATSAPP_AI_DRY_RUN`
+- [x] normalisation des numéros WhatsApp / E.164
+- [x] identité parent WhatsApp vérifiée
+- [x] permissions documents par lien parent/élève
+- [x] contexte parent strictement limité aux enfants autorisés
+- [x] numéro inconnu : aucune donnée privée exposée
+- [x] outil IA `send_period_report_card`
+- [x] bulletin envoyé depuis le `ReportCardSnapshot` officiel existant
+- [x] choix du trimestre / période demandé
+- [x] outil IA `send_tuition_invoice`
+- [x] facture / situation de pension PDF A4
+- [x] facture de pension FR / EN selon le parent
+- [x] pension annuelle / tranches / payé / reste / échéances
+- [x] prévisualisation locale de la facture sans envoi WhatsApp
+- [x] endpoint interne protégé par `X-Bewise-Agent-Key`
+- [x] logs messages entrants / sortants / documents
+- [x] management command `setup_whatsapp_mvp`
+- [x] workflow n8n agent conversationnel fourni
+- [x] mémoire conversationnelle n8n par instance + numéro
+- [x] prompt agent limité aux deux documents autorisés
+- [x] tests backend ajoutés
+- [x] documentation sécurité / n8n / installation
+- [x] rendu réel facture PDF FR vérifié
+- [x] rendu réel facture PDF EN vérifié
+
+Nouvelle migration :
+
+```text
+whatsapp_ai.0001_initial
+```
+
+Aucune modification frontend dans cette étape.
